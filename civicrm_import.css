@@ -1,0 +1,24 @@
+.civicrm_import_stub {
+     border: 1px solid grey;
+     background: #EFEFEF;
+     margin: 15px;
+     padding:10px;
+     clear:both;
+     overflow:hidden;
+	 font-size:11px;
+	 font-family:Verdana, Geneva, sans-serif;
+}
+
+.civicrm_import_stub img {
+     float:left;
+     width:64px;
+     height:64px;
+	 margin-right:20px;
+}
+
+.civicrm_import_stub h2 {
+     display:inline;
+	 font-size:18px;
+	 font-family:Tahoma, Geneva, sans-serif;
+	 color:#333;
+}
