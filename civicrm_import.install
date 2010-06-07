@@ -1,0 +1,123 @@
+<?php
+// $Id
+
+/**
+ * Implementation of hook_install().
+ */
+function civicrm_import_install() {
+  // Create tables.
+  drupal_install_schema('civicrm_import');
+}
+
+/**
+ * Implementation of hook_install().
+ */
+
+function civicrm_import_uninstall() {
+  // Remove tables
+  drupal_uninstall_schema('civicrm_import');
+  
+  // Kill module variables
+  db_query("DELETE FROM {variable} WHERE name LIKE 'civicrm_import_%'");
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function civicrm_import_schema() {
+
+	$schema['civicrm_import_job'] = array(
+		'description' => t('Stores civicrm import jobs'),
+		'fields' => array(		
+			'jobid' => array(
+				'type' => 'serial',
+				'not null' => TRUE,
+				'description' => t('primary key'),
+			),
+			'fid' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'size' => 'big',
+				'description' => t('File id of the import file'),
+			),
+			'headings' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'size' => 'tiny',
+				'default' => 0,
+				'description' => t('Include/Exclude CSV headings'),
+			),
+			'dupe_check' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'size' => 'tiny',
+				'default' => 0,
+				'description' => t('Check for duplicate contacts'),
+			),
+			'date_format' => array(
+				'type' => 'varchar',
+				'not null' => TRUE,
+				'length' => 64,
+				'default' => 'yyyy-mm-dd',
+				'description' => t('Date Format'),
+			),
+			'import_groups' => array(
+				'type' => 'text',
+				'size' => 'normal',
+				'not null' => FALSE,
+				'description' => t('add imported records to groups'),
+			),
+			'import_tags' => array(
+				'type' => 'text',
+				'size' => 'normal',
+				'not null' => FALSE,
+				'description' => t('add imported records to tags'),
+			),
+			'mapping' => array(
+				'type' => 'text',
+				'size' => 'medium',
+				'not null' => TRUE,
+				'description' => t('import file mapping'),
+			),
+			'status' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'default' => 0,
+				'size' => 'tiny',
+				'description' => t('Status of the job 0 = incomplete 1 = complete 99 = running'),
+			),
+			'cron' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'default' => 0,
+				'size' => 'tiny',
+				'description' => t('See if cron has ran or not'),
+			),
+			'uid' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'size' => 'big',
+				'description' => t('Drupal user who submitted this import job'),
+			),
+			'date_submitted' => array(
+				'type' => 'datetime',
+				'not null' => TRUE,
+				'description' => t('Date the job is submitted'),
+			),
+			'date_started' => array(
+				'type' => 'datetime',
+				'not null' => TRUE,
+				'description' => t('Date the job is started'),
+			),
+			'date_complete' => array(
+				'type' => 'datetime',
+				'not null' => TRUE,
+				'description' => t('Date the job is completed'),
+			),
+		),
+		'primary key' => array('jobid'),
+	);
+	
+	return $schema;
+
+}

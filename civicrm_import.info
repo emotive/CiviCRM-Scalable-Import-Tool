@@ -1,0 +1,8 @@
+; $Id$
+name = CiviCRM Mass Import
+description = Bulk import utility for CiviCRM
+package = CiviCRM
+core = 6.x
+dependencies[] = upload_element
+dependencies[] = civicrm
+version = "6.x-1.0-alpha1"

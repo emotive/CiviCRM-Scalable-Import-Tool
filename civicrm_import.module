@@ -1,0 +1,718 @@
+<?php
+require_once('common.inc');
+
+
+/**
+* Implementation of hook_menu
+*/
+function civicrm_import_menu() {
+
+	$items['admin/civi_import'] = array(
+		'title' => 'CiviCRM Import',
+		'type' => MENU_NORMAL_ITEM,
+		'page callback' => 'civicrm_import_stub',
+		'access arguments' => array('administer site configuration'),	
+	);
+	
+	$items['admin/civi_import/import'] = array(
+		'title' => 'New Import',
+		'type' => MENU_NORMAL_ITEM,
+		'page callback' => 'civicrm_import_main',
+		'access arguments' => array('administer site configuration'),
+	);
+	
+	$items['admin/civi_import/config'] = array(
+		'title' => 'Import Configuration',
+		'access arguments' => array('administer site configuration'),
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('civicrm_import_config_settings'),
+		'file' => 'civicrm_import.config.inc',
+		'type' => MENU_NORMAL_ITEM,
+	);
+	
+	$items['admin/civi_import/help'] = array(
+		'title' => 'Custom Field Value Table',
+		'access arguments' => array('administer site configuration'),
+		'page callback' => 'civicrm_import_help_guide',
+		'type' => MENU_NORMAL_ITEM,
+	);
+	
+  return $items;
+}
+
+/**
+* Implementation of hook_menu
+*/
+function civicrm_import_theme() {
+  return array(
+    'civicrm_import_form' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'civicrm_import_stub' => array(
+      'arguments' => array(),
+    ),
+  );
+}
+
+function civicrm_import_init() {
+
+	$path = array(
+		'sites/default/files/civicrm_import',
+		'sites/default/files/civicrm_import/log',
+		'sites/default/files/civicrm_import/error',
+		'sites/default/files/civicrm_import/error_csv',
+		'sites/default/files/civicrm_import/tmp',
+	);
+
+	for($i = 0; $i< count($path); $i++) {
+		file_check_directory($path[$i], FILE_CREATE_DIRECTORY);
+	}
+	
+}
+
+
+function civicrm_import_stub() {
+	return theme('civicrm_import_stub');
+}
+
+function theme_civicrm_import_stub() {
+	
+	drupal_add_css(drupal_get_path('module', 'civicrm_import') . '/civicrm_import.css');
+	
+	$table_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/table_128.png');
+	$import_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/import_128.png');
+	$config_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/config_128.png');
+	
+	$output = '<div class="civicrm_import_stub">
+  <h2>' . l('Start a new import', 'admin/civi_import/import') . '</h2>
+  ' . $import_image . '
+  <p>Start a new import job</p>
+</div>
+<div class="civicrm_import_stub">
+  <h2>' . l('Import Configurations', 'admin/civi_import/config') . '</h2>
+' . $config_image . '
+  <p>Set import configurations</p>
+</div>
+	<div class="civicrm_import_stub">
+  <h2>' . l('Custom Field Value Table', 'admin/civi_import/help') . '</h2>
+  ' . $table_image . '
+  <p>Gives the valid import value for different custom fields</p>
+</div>';
+
+	return $output;
+}
+
+// no themeing function, I know it's lazy
+function civicrm_import_help_guide() {
+	
+	$output = '<p><div class="message warning">Please use the values in the table below where you are importing SET valued custom fields. Look in the value column to see the acceptable values for each field</div></p>';
+	
+	
+	$custom_fields_query = db_query("SELECT ccf.id, concat(concat(ccf.label, '::'), ccg.title) as label
+		FROM civicrm_custom_field ccf
+		JOIN civicrm_custom_group ccg ON ccf.custom_group_id = ccg.id
+		WHERE (
+			ccf.html_type = 'Radio'
+			OR ccf.html_type = 'CheckBox'
+			OR ccf.html_type = 'Select'
+		)
+		AND ccg.extends = 'Contact'");
+	
+	while($result = db_fetch_object($custom_fields_query)) {
+		
+	$rows[] = array(array('data'=> $result->label, 'colspan' => 2, 'style' => 'font-weight:bold; color:grey'));
+		
+	$value_query = db_query("SELECT cov.label, cov.value FROM civicrm_option_value cov 
+		JOIN civicrm_option_group cog ON cov.option_group_id = cog.id
+		JOIN civicrm_custom_field ccf ON ccf.option_group_id = cog.id
+		WHERE ccf.option_group_id IS NOT NULL AND ccf.id = %d", $result->id);
+		
+		while($result_value = db_fetch_array($value_query)) {
+			$rows[] = $result_value;
+		}
+		
+		$output .= theme('table', array('Field label', 'Value'), $rows);
+		unset($rows);
+		
+	}
+	
+	$output .= l('Back', 'admin/civi_import');
+	
+	return $output;
+}
+
+
+
+function civicrm_import_main() {
+	
+	global $user;
+	
+	$output .= drupal_get_form('civicrm_import_form', $user->uid);;
+	return $output;
+}
+
+/*
+ * Form Theming function
+ */
+ 
+function theme_civicrm_import_form($form) {
+
+	if($form['step']['#value'] == 0) {
+		$output = drupal_render($form['file']);
+	} elseif($form['step']['#value'] == 1) {
+		// for step 2
+		$rows = _civicrm_import_mapping($form['fid']['#value'], $form['import_header']['#value'], TRUE);
+		
+		if($form['import_header']['#value']) {
+			$heading = _civicrm_import_csv_header($form['fid']['#value']);
+		}
+
+		
+		for($y = 0; $y < $rows; $y++) {
+			$_rows[$y] = array(($form['import_header']['#value']) ? array('data'=>$heading[$y], 'style'=>'font-weight:bold') : '', drupal_render($form['row' . $y . 'c0']), drupal_render($form['row' . $y . 'c1']), drupal_render($form['matching_' . $y]));
+		}
+		$output .= theme('table', array('Import Columns', 'Import Data (Row 1)', 'Import Data (Row 2)', 'Matching Fields'), $_rows);
+		
+		$output .= drupal_render($form['options']);
+		
+		$output .= drupal_render($form['groups_n_tags']);
+	} else {
+		$output .= drupal_render($form['warning_pre']);
+		$output .= drupal_render($form['invalid']);
+		$output .= drupal_render($form['warning_post']);
+	}
+	
+	$output .= drupal_render($form);
+	
+	return $output;
+	
+}
+
+/*
+ * Chang 6/02/2010
+ * Step 1: Upload/SELECT file header
+ * Step 2: Select Mapping and other information
+ * Step 3: Quick Validation
+ */
+function civicrm_import_form(&$form_state, $uid) {
+
+	$step = isset($form_state['values']) ? (int)$form_state['storage']['step'] : 0;
+	// Store next step.
+	$form_state['storage']['step'] = $step + 1;
+
+	$form['step'] = array(
+		'#type' => 'value',
+		'#value' => $step,
+	);
+
+	if($step == 0) {
+		$form['uid'] = array(
+			'#type' => 'value',
+			'#value' => $uid,
+		);
+		
+		$import_file_list = _civicrm_import_file_list($uid);
+		
+		$form['file'] = array(
+			'#type'=> 'fieldset',
+			'#title'=> t('Import file'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+		
+		$form['file']['civicrm_import_file'] = array(
+			'#type'=> 'upload_element',
+			'#title'=> 'Import file',
+			'#file_validators' => array(
+				'file_validate_size' => array(16777216),
+				'file_validate_extensions' => array('csv', 'txt'),
+				),
+			'#required' => TRUE,
+		);
+		
+		$form['file']['civicrm_import_file_header'] = array(
+			'#type' => 'checkbox',
+			'#title' => t('First row contains column headers'),
+			'#description' => t('Check this box if the first row of your file consists of field names (Example: \'First Name\',\'Last Name\',\'Email\')'),
+		);
+	
+	} elseif($step == 1) {
+		
+		$form_state['storage']['fid'] = upload_element_save($form_state['values']['civicrm_import_file'], 'civicrm_import/' . $form_state['values']['uid'], FILE_EXISTS_RENAME);		
+	
+		// $form_state['storage']['fid'] = $form_state['values']['civicrm_import_file'];
+
+		$form_state['storage']['import_header'] = ($form_state['values']['civicrm_import_file_header'] == 1) ? true : false;
+		
+		$rows = _civicrm_import_mapping($form_state['storage']['fid'], $form_state['storage']['import_header']);
+		
+		$form['fid'] = array(
+			'#type' => 'value',
+			'#value' => $form_state['storage']['fid'],
+		);
+		
+		$form['import_header'] = array(
+			'#type' => 'value',
+			'#value' => $form_state['storage']['import_header'],
+		);
+		
+		$form['num_rows'] = array(
+			'#type' => 'value',
+			'#value' => $rows,
+		);
+		
+		for($i = 0; $i<count($rows); $i++) {
+			$form['row' . $i . 'c0'] = array(
+				'#value' => $rows[$i][0],
+			);
+			
+			$form['row' . $i . 'c1'] = array(
+				'#value' => $rows[$i][1],
+			);
+		
+			$matching_options = _civicrm_import_mapping_match();
+		
+			$form['matching_' . $i] = array(
+				'#type' => 'select',
+				'#options' => $matching_options,
+			);
+		}
+		
+		// Import options
+		$form['options'] = array(
+			'#type'=> 'fieldset',
+			'#title'=> t('Import Options'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+
+		$form['options']['civicrm_duplicate_options'] = array(
+			'#type' => 'radios',
+			'#title' => t('Check for duplicate contact'),
+			'#options' => array(
+				1 => t('Yes'),
+				0 => t('No'),
+			),
+		);
+		
+		$form['options']['civicrm_date_options'] = array(
+			'#type' => 'radios',
+			'#title' => t('Date Format'),
+			'#options' => array(
+				'yyyy-mm-dd' => t('yyyy-mm-dd (1998-12-25)'),
+				'mm-dd-yyyy' => t('mm-dd-yyyy (12-25-1998)'),
+				'mm/dd/yyyy' => t('mm/dd/yyyy (12/25/1998)'),
+			),
+		);
+		
+		// Gropus and Tags
+		$form['groups_n_tags'] = array(
+			'#type'=> 'fieldset',
+			'#title'=> t('Import contact group(s) and tag(s) options'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+		
+		$civicrm_groups = _civicrm_import_fetch_tags_groups();
+		
+		$form['groups_n_tags']['groups_existing'] = array(
+			'#type' => 'select',
+			'#title' => 'Add imported records to group(s)',
+			'#multiple' => TRUE,
+			'#size' => 5,
+			// handle default if no groups have been created
+			'#options' => $civicrm_groups,
+		);
+		
+		 $civicrm_tags = _civicrm_import_fetch_tags_groups(FALSE);
+		
+		$form['groups_n_tags']['tags_existing'] = array(
+			'#type' => 'checkboxes',
+			'#title' => 'Tag imported records',
+			'#options' => $civicrm_tags,
+		);
+	
+	} 
+	// this step is to check errors and display it to the client
+	elseif($step == 2) {
+		$form_state['storage']['values'] = $form_state['values'];
+		
+		$db_conn = array(
+			'host' => variable_get('civicrm_import_db_host', 'localhost'),
+			'name' => variable_get('civicrm_import_db_name', 'civicrm_import_data'),
+			'user' => variable_get('civicrm_import_db_username', 'admin'),
+			'pass' => variable_get('civicrm_import_db_password', 'password'),
+		);
+		
+		$logging = array(
+			'path' => variable_get('civicrm_import_logging_path', 'path/to/log/files'),
+			'logging' => variable_get('civicrm_import_logging_toggle', 1),
+		);
+		
+		$validator = new civicrm_import_validate($db_conn, $logging);
+		
+		// get mapping
+		$_mapping = array();
+		for($i = 0; $i<count($form_state['values']['num_rows']); $i++) {
+			$_mapping[$i] = $form_state['values']['matching_' . $i];
+		}
+		
+		// get file path
+		$filepath = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $form_state['values']['fid']));
+		
+		// validate standard fields
+		$csv_logging = TRUE;
+		$validate_result = $validator->validate_fields($_mapping, $filepath, 100, $csv_logging);
+		
+		// validate custom fields
+		$custom_validate_result = $validator->validate_custom_fields($_mapping, $filepath, 100, $csv_logging);
+		
+		if($validate_result['status'] == 1 && $custom_validate_result == TRUE) {
+			$message = 'No invalid values detected through the quick validation process, you can proceed';
+			$status = 'ok';
+		} else {
+			$status = 'error';
+			if($validate_result['errors']['email'] > 0) {
+				$message .= '<li>Number of invalid <strong>email</strong> detected from first 100 records: <strong>' . $validate_result['errors']['email'] . '</strong></li>';
+			}
+			if($validate_result['errors']['state'] > 0) {
+				$message .= '<li>Number of invalid <strong>state</strong> detected from first 100 records: <strong>' . $validate_result['errors']['state'] . '</strong></li>';
+			}
+			if($validate_result['errors']['zip'] > 0) {
+				$message .= '<li>Number of invalid <strong>zip code</strong> detected from first 100 records: <strong>' . $validate_result['errors']['zip'] . '</strong></li>';
+			}
+			
+			if(!$custom_validate_result) {
+				$message .= '<li>Number of invalid <strong>custom field</strong> detected from first 100 records: <strong>' . $validator->__get('custom_field_errors') . '</strong></li>';
+			}
+			
+			if($csv_logging == TRUE) {
+	
+				$file = 'sites/default/files/civicrm_import/error_csv/' . $validator->log->__get('log_file');
+				$message .= '<li><strong>' . l('Click here to view', $file, array('attributes' => array('target' => '_blank'))) . '</strong> the quick validation error report</li>';
+				
+			}
+		}
+		
+		$form['warning_pre'] = array(
+			'#type' => 'markup',
+			'#prefix' => '<p><h3>',
+			'#suffix' => '</h3></p>',
+			'#value' => 'Please carefully review the result of the quick import validation statistics below: <strong>It is strongly recommended that you clean up the import file
+			if there are invalid import values</strong>',
+		);
+		
+		$form['invalid'] = array(
+			'#type' => 'markup',
+			'#prefix' => '<p><div class="message ' . $status . '"><ul>',
+			'#suffix' => '</ul></div></p>',
+			'#value' => $message,
+		);
+		
+		$form['warning_post'] = array(
+			'#type' => 'markup',
+			'#prefix' => '<p><div class="message warning">',
+			'#suffix' => '</div></p>',
+			'#value' => 'It is very likely your import job will return an error later if it contains invalid field values, please make sure you clean up your import file before you proceed. Click here for help',
+		);
+
+	}
+	
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => ($step == 0) ? t('Next') : (($step == 1) ? t('Next') : t('Import')),
+	);
+	
+	$form['cancel'] = array(
+		'#type' => ($step == 0) ? 'button' : 'submit',
+		'#value' => ($step == 0) ? t('Cancel') : (($step == 1) ? t('Back') : t('Reset')),
+		'#attributes' => ($step == 0) ? array('onclick' => 'javascript:document.location="admin/civi_import"; return false;') : (($step == 1) ? array('onclick' => 'javascript: history.go(-1); return false;') : ''),
+	);
+	
+	return $form;
+}
+
+function civicrm_import_form_validate($form, &$form_state) {
+	switch($form_state['storage']['step']) {
+			case 1:
+				if($form_state['values']['civicrm_import_file'] == '') {
+					form_set_error('civicrm_import_file', 'Please choose an import file first');
+				}
+			break;
+			
+			case 2:
+				if($form_state['values']['civicrm_duplicate_options'] == '') {
+					form_set_error('civicrm_duplicate_options', 'Please select duplicate check options');
+				}
+				if($form_state['values']['civicrm_date_options'] == '') {
+					form_set_error('civicrm_date_options', 'Please select a date format to work with');
+				}
+				// also check field matching
+				$no_import_count = 0;
+				for($i = 0; $i < count($form_state['values']['num_rows']); $i++) {
+					if($form_state['values']['matching_' . $i] == 'do_not_import') {
+						$no_import_count++;
+					}
+				}
+	
+				if($no_import_count == count($form_state['values']['num_rows'])) {
+					form_set_error('matching_0', 'You must import at least 1 field');
+				}
+				if(!in_array('first_name', $form_state['values'], TRUE)) {
+					form_set_error('matching_0', 'You must import first name to establish an contact');
+				}
+				if(!in_array('email', $form_state['values'], TRUE)) {
+					form_set_error('matching_0', 'You must import email to establish an contact');
+				}
+			break;
+	}
+}
+
+function civicrm_import_form_submit($form, &$form_state) {
+
+	// return if we haven't reached the last step of the form yet
+	if($form_state['storage']['step'] < 3) {
+		return;
+	}
+	
+	// reset button pressed at the validation screen
+	if($form_state['clicked_button']['#value'] == 'Reset') {
+		
+		$check = db_result(db_query("SELECT count(*) FROM {files} WHERE fid = %d", $form_state['storage']['fid']));
+		
+		if($check == 0) {
+			drupal_set_message("Error: file does not exist", 'error');
+		} else {
+			$path = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $form_state['storage']['fid']));
+			
+			if(file_delete($path)) {
+				if(db_query("DELETE FROM {files} WHERE fid = %d", $form_state['storage']['fid'])) {
+					drupal_set_message("You can now start over the import process by upload a new file");
+				}
+			}
+		}
+		
+		unset($form_state['storage']);
+		
+		$form_state['redirect'] = 'admin/civi_import/import';
+		
+	} else {
+		global $user;
+		
+		// Chang is here, bug: form_state['values'] is not carried over after step 3
+		$form_state['values'] = $form_state['storage']['values'];
+		
+		// set groups
+		$groups_add = (empty($form_state['values']['groups_existing'])) ? '' : serialize($form_state['values']['groups_existing']);
+		
+		// if no tags applied, make it blank, also get rid of 0 value tags
+		$empty_tags = 0;
+		foreach($form_state['values']['tags_existing'] as $key => $value) {
+			if($value == 0) {
+				unset($form_state['values']['tags_existing'][$key]);
+			}
+		}
+		$tags_add = (empty($form_state['values']['tags_existing'])) ? '' : serialize($form_state['values']['tags_existing']);
+		
+		// get mapping
+		$_mapping = array();
+		for($i = 0; $i<count($form_state['values']['num_rows']); $i++) {
+			$_mapping[$i] = $form_state['values']['matching_' . $i];
+		}
+		$mapping = serialize($_mapping);
+			
+		$query = db_query("INSERT INTO {civicrm_import_job} (fid, headings, dupe_check, date_format, import_groups, import_tags, mapping, uid, date_submitted) VALUES (%d, %d, %d, '%s', '%s', '%s', '%s', %d, '%s')", $form_state['values']['fid'], $form_state['values']['import_header'], $form_state['values']['civicrm_duplicate_options'], $form_state['values']['civicrm_date_options'], $groups_add, $tags_add, $mapping, $user->uid, date('Y-m-d h:i:s', time()));
+		
+		// last step clear the storage bin
+		unset($form_state['storage']);
+		
+		if($query) {
+			drupal_set_message(t('Your import job has been scheduled, it will you will receive an email when it completes'));
+		} else {
+			drupal_set_message(t('Error scheduling the import job'), 'error');
+		}
+		
+		$form_state['redirect'] = 'admin/civi_import';	
+	}
+
+}
+
+/*
+ * Helper functions
+ */
+function _civicrm_import_file_list($uid) {
+	
+	$_path = 'sites/default/files/civicrm_import/' . $uid . '/';
+	$query = db_query("SELECT fid, filename FROM {files} WHERE status = %d AND uid = %d AND filepath like '%s%%'", 1, $uid, $_path);
+	
+	$data[''] = t('--Please choose --');
+	while($result = db_fetch_object($query)) {
+		$data[$result->fid] = t($result->filename);
+	}
+	
+	return $data;
+}
+
+// This probably have to change later if cms and crm are in different database
+function _civicrm_import_fetch_tags_groups($groups = TRUE) {
+	
+	if($groups == TRUE) {
+		$query = db_query("SELECT id, name FROM civicrm_group");
+	} else {
+		$query = db_query("SELECT id, name FROM civicrm_tag");
+	}
+	// $data = array('' => t('-- Please Choose --'));
+	while($result = db_fetch_object($query)) {
+		$data[$result->id] = $result->name;
+	}
+	
+	return $data;
+}
+
+function _civicrm_import_ahah() {
+
+	$form_state = array('storage' => NULL, 'submitted' => FALSE);
+	$form_build_id = $_POST['form_build_id'];
+	
+	$form = form_get_cache($form_build_id, $form_state);
+	
+	$args = $form['#parameters'];
+	$form_id = array_shift($args);
+	$form_state['post'] = $form['#post'] = $_POST;
+	$form['#programmed'] = $form['#redirect'] = FALSE;
+	
+	drupal_process_form($form_id, $form, $form_state);
+
+	$form = drupal_rebuild_form($form_id, $form_state, $args, $form_build_id);
+	
+	return $form;
+}
+
+function _civicrm_import_csv_header($fid) {
+	$file = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $fid));
+	$parser = new parseCSV();
+	$parser->limit = 1;
+	$parser->heading = FALSE;
+	$parser->parse($file);
+	
+	$headings = civicrm_import_flattenArray($parser->data);
+	
+	return $headings;
+}
+
+function _civicrm_import_mapping($fid, $heading = FALSE, $count = FALSE) {
+
+	// a helper function
+	$file = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $fid));
+
+	$parser = new parseCSV();
+	$parser->limit = 2;
+	$parser->heading = $heading;
+	$parser->auto($file);
+	
+	$data = $parser->data;
+
+	$piece = array_chunk($data[0], 1);
+	$piece1 = array_chunk($data[1], 1);
+	
+	for($i = 0; $i < count($piece); $i++) {
+		$cool[$i] = array_merge($piece[$i], $piece1[$i]);
+	}
+	
+	if($count == TRUE) {
+		return count($cool);
+	} else {
+		return $cool;
+	}		
+
+}
+
+/*
+ * Build the selection box for matching
+ */ 
+function _civicrm_import_mapping_match() {
+	
+	$profile_fields = array(
+		'first_name' => t('First Name'),
+		'middle_name' => t('Middle Name'),
+		'last_name' => t('Last Name'),
+		'nick_name' => t('Nick Name'),
+		'gender' => t('Gender'),
+		'birth_date' => t('Birth Date'),
+		'individual_prefix' => t('Individual Prefix'),
+		'individual_suffix' => t('Individual Suffix'),
+		'job_title' => t('Job Title'),		
+	);
+	
+	$communication_fields = array(
+		'email'=> t('Email'),
+		'phone|home' => t('Phone | Home'),
+		'phone|work' => t('Phone | Work'),
+		'phone|other' => t('Phone | Other'),
+		'preferred_communication_method' => t('Preferred Communication Method'),
+		'preferred_mail_format' => t('Preferred Mail Format'),
+	);
+	
+	$address_fields = array(
+		'street_address|home' => t('Street Address | Home'),
+		'supplemental_address_1|home' => t('Supplemental Address 1 | Home'),
+		'supplemental_address_2|home' => t('Supplemental Address 2 | Home'),
+		'city|home' => t('City | Home'),
+		'state_province|home' => t('State | Home'),
+		'postal_code|home' => t('Zip Code | Home'),
+		'postal_code_suffix|home' => t('Zip Code Plus 4 | Home'),
+		'street_address|billing' => t('Street Address | Billing'),
+		'supplemental_address_1|billing' => t('Supplemental Address 1 | Billing'),
+		'supplemental_address_2|billing' => t('Supplemental Address 2 | Billing'),
+		'city|billing' => t('City | Billing'),
+		'state_province|billing' => t('State | Billing'),
+		'postal_code|billing' => t('Zip Code | Billing'),
+		'postal_code_suffix|billing' => t('Zip Code Plus 4 | Billing'),				
+	);
+	
+	$other_fields = array(
+		'geo_code_1' => t('Geo Code 1'),
+		'geo_code_2' => t('Geo Code 2'),
+		'image_URL' => t('Image URL'),
+		'external_identifier' => t('External Identifier'),
+		'legal_identifier' => t('Legal Identifier'),
+		'contact_source' => t('Source of Contact Data'),
+		'user_unique_id' => t('Unique ID (OpenID)'),
+		'home_URL' => t('Website'),
+		'note' => t('Note'),
+	);
+		
+	// need to get civicrm data source (because it might be in a different db :(
+	// we are only concerned with importing individuals right now
+	$custom_field_query = db_query("SELECT cf.id AS custom_field_id, cf.label AS custom_field, cg.title AS custom_group
+		FROM civicrm_custom_field cf
+		JOIN civicrm_custom_group cg ON cf.custom_group_id = cg.id
+		WHERE cg.extends_entity_column_value is NULL AND (cg.extends = 'Contact' OR cg.extends = 'Individual')
+		ORDER BY cf.label");
+		
+	while($results = db_fetch_object($custom_field_query)) {
+		$fields_custom['custom_' . $results->custom_field_id] = $results->custom_field . '::' . $results->custom_group;
+	}
+	
+	// build the fields
+	$options = array(
+		'do_not_import' => t('Do Not Import'),
+		'Profile Fields' => $profile_fields,
+		'Communication Fields' => $communication_fields,
+		'Address Fields' => $address_fields,
+		'Other Fields' => $other_fields,
+		'Custom Fields' => $fields_custom,
+	);
+	
+	return $options;
+}
+
+function civicrm_import_flattenArray(array $array){
+	$ret_array = array();
+	foreach(new RecursiveIteratorIterator(new RecursiveArrayIterator($array)) as $value)
+	{
+		$ret_array[] = $value;
+	}
+	return $ret_array;
+}
+?>
