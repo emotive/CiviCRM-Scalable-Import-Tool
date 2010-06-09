@@ -7,6 +7,7 @@ chdir('path/to/drupal_install');
 require_once('./sites/default/civicrm.settings.php');
 
 require_once('CRM/Core/Config.php');
+require_once('CRM/Core/DAO.php');
 $config =& CRM_Core_Config::singleton();
 
 // CiviCRM APIs
@@ -428,6 +429,10 @@ class civi_import_job extends civicrm_import_db {
 			}
 			
 			$contact =& civicrm_contact_create($param);
+			
+			// bug fix: memory leak from API call
+			CRM_Core_DAO::freeResult();
+			
 			if($contact['is_error'] == 1) {
 				$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
 			} else {
