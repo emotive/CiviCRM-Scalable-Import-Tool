@@ -96,6 +96,10 @@ This module requires the following:
 	4. Select grouping/tagging options
 	5. Check quick validation report, Import
 	
+	(If you are going to use cron.php, you need to edit the first line of
+	$url = 'http://yoursite.com/sites/all/modules/civicrm_import/civicrm_import.cron.php';
+	to your drupal site url)
+	
 /*************************************************************
  * 5. Known Issues
  ************************************************************/
