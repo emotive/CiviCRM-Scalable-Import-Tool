@@ -68,12 +68,14 @@ This module requires the following:
 	
 	6. Log PATH: if Logging is selected, the full path to where the logging file will be stored
 	(This should be the full path to /sites/default/files/civicrm_import)
+	
+	7. Email from: Email from address of the sender
  
-	7. Email to: Email status and update that should be sent to
+	8. Email to: Email status and update that should be sent to
 	
-	8. Email greeting: The name of the email: i.e. John Doe
+	9. Email greeting: The name of the email: i.e. John Doe
 	
-	9. CMS db prefix: The Drupal database prefix, (should include the underscore _)
+	10. CMS db prefix: The Drupal database prefix, (should include the underscore _)
 	
 	10. Import file split lines count: If you have a large file (say 250,000) records and
 	set the line count to 50,000, the script will split the file into 5 parts and attempt
@@ -134,4 +136,5 @@ This module requires the following:
  * 7. Change log
  ************************************************************/
  
+ Alpha 2 release: 6/10/2010
  Alpha 1 release: 6/5/2010

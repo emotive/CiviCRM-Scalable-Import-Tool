@@ -3,7 +3,7 @@ require_once('civicrm_importer.class.php');
 
 // The following line should be changed to the 
 // path of your drupal installation
-chdir('path/to/drupal_install');
+chdir('path/to/drupal/install');
 
 require_once './includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
@@ -35,8 +35,9 @@ function return_import_options() {
 			'pass' => var_get('civicrm_import_db_password', 'admin'),
 		),
 		'email' => array(
-			'to' => var_get('civicrm_import_email_to', 'email@yourdomainname'),
+			'to' => var_get('civicrm_import_email_to', 'email@yourdomainname.com'),
 			'to_greeting' => var_get('civicrm_import_email_to_greeting', 'John Doe'),
+			'from' => var_get('civicrm_import_email_from', 'info@yourdomainname.com'),
 		),
 		'log' => array(
 			'logging' => (var_get('civicrm_import_logging_toggle', 1) == 1) ? TRUE : FALSE,

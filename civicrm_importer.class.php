@@ -42,8 +42,9 @@ class civi_import_job extends civicrm_import_db {
 	 * $options = array(
 	 *			'cms_prefix' => '',
 	 *			'line_split' => 5000,
-	 *			'mail' => array(
+	 *			'email' => array(
 	 *				'to' => 'email@yourdomain.com',
+	 *				'from' => 'info@yourdomain.com',
 	 *				'to_greeting' => 'John Doe',
 	 *			),
 	 *			'db' => array(
@@ -107,7 +108,7 @@ class civi_import_job extends civicrm_import_db {
 		
 		// start the mailer
 		$this->mailer = new PHPMailer();
-		$this->mailer->SetFrom('support@emotivellc.com', 'Support - Emotive');
+		$this->mailer->SetFrom($this->options['email']['from'], 'CiviCRM Import Scheduler');
 		$this->mailer->AddAddress($this->options['email']['to'], $this->options['email']['to_greeting']);
 		$this->mailer->AltBody    = "To view the message, please use an HTML compatible email viewer!";
 		
@@ -669,7 +670,6 @@ class civi_import_job extends civicrm_import_db {
 				<br />
 				<br />
 				Sincerely, <br />
-				EMotive Support Team
 				";
 				
 				$this->mailer->AddAttachment($err_filepath);
@@ -695,7 +695,6 @@ class civi_import_job extends civicrm_import_db {
 				<br />
 				<br />
 				<p>Sincerely,<br />
-				EMotive Support Team</p>
 				";
 				
 			break;
@@ -769,8 +768,7 @@ class civi_import_job extends civicrm_import_db {
 		parent::__construct($this->options['db']['host'], $this->options['db']['name'], $this->options['db']['user'], $this->options['db']['pass']);
 		
 	}
-
-
+	
 	/*
 	 ***********************************************************************************
 	 * Filter out bad email addresses or names html tags
