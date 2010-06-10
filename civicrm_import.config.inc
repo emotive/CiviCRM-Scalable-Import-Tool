@@ -87,11 +87,20 @@ function civicrm_import_config_settings() {
 	'collapsed' => FALSE,
   );
   
+  $form['civicrm_import_import_email']['civicrm_import_email_from'] = array(
+	'#type' => 'textfield',
+	'#title' => t('Email from'),
+	'#description' => t('The From address in which import job status will be sent from, usually something like info@yourdomainname.com'),
+	'#default_value' => variable_get('civicrm_import_email_from', 'email@yourdomainname.com'),
+	'#size' => 20,
+	'#required' => TRUE,
+  );
+  
   $form['civicrm_import_import_email']['civicrm_import_email_to'] = array(
 	'#type' => 'textfield',
-	'#title' => t('Email to:'),
+	'#title' => t('Email to'),
 	'#description' => t('Email address where the status of the import will be sent to'),
-	'#default_value' => variable_get('civicrm_import_email_to', 'email@yourdomainname'),
+	'#default_value' => variable_get('civicrm_import_email_to', 'email@yourdomainname.com'),
 	'#size' => 20,
 	'#required' => TRUE,
   );
