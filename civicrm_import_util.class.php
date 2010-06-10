@@ -26,7 +26,7 @@ class civicrm_import_utils {
 	public function __set($variable, $value) {
 		$this->$variable = $value;
 	}
-	
+			
 	/*
 	 ***********************************************************************************
 	 * File logging to provide error feedbacks
@@ -139,7 +139,7 @@ class civicrm_import_utils {
 		
 		$_file_name = $path . '/' . $file_name;
 	
-		if($handle = fopen($_file_name, 'a')) {
+		if($handle = fopen($_file_name, 'w')) {
 			$re = fwrite($handle, $message);
 			$re2 = fclose($handle);
 			if ( $re != false && $re2 != false ) return true;

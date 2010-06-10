@@ -2,7 +2,7 @@
 
 // The following line should be changed to the 
 // path of your drupal installation
-chdir('path/to/drupal_install');
+chdir('path/to/drupal/install');
 
 require_once('./sites/default/civicrm.settings.php');
 
@@ -26,7 +26,7 @@ require_once('lib/class.phpmailer.php');
 require_once('civicrm_import_util.class.php');
 require_once('civicrm_import_db.class.php');
 // validation class - currently using it on the client side (drupal)
-// require_once('civicrm_import_validate.class.php');
+require_once('civicrm_import_validate.class.php');
 
 // the class
 class civi_import_job extends civicrm_import_db {
@@ -138,7 +138,7 @@ class civi_import_job extends civicrm_import_db {
 		$this->mapping_sort();
 		
 		$this->import_status_update('start');
-		$this->mail('started');
+		//$this->mail('started');
 		
 		
 		// splitting up the files
@@ -165,11 +165,16 @@ class civi_import_job extends civicrm_import_db {
 			// in this case we are just parsing the string returned by the file splitter
 			$this->process_import($split_files, $offset);
 		}
+
+		// big fix: 
+		// stop gap measure for MySQL server time out after import is finished
+		// Need to switch to Drupal db boot_strap for persistent connection
+		$this->reset_db();
 		
 		// assuming if fatal errors occured before this step, this will never be called
 		$this->file_delete();
 		$this->import_status_update('finish');
-		$this->mail('finish');
+		//$this->mail('finish');
 		
 		echo 'complete';
 		
@@ -213,7 +218,7 @@ class civi_import_job extends civicrm_import_db {
 	 * import parameters
 	 * 
 	 * @returns (internal)
-	 * $this->data [array]				|	key: jobid			value: jobid
+	 * (array) $this->data				|	key: jobid			value: jobid
 	 *									|	key: fid			value: drupal fid from the {file} table
 	 *									|	key: headings		value: 0 or 1 
 	 *									|	key: dupe_check		value: 0 or 1
@@ -248,7 +253,7 @@ class civi_import_job extends civicrm_import_db {
 	 *
 	 * @returns
 	 */
-	private function import_status_update($status = 'start') {
+	private function import_status_update($status = 'start') {	
 
 		$_query = "UPDATE %s %s WHERE jobid = %d";
 		
@@ -281,8 +286,8 @@ class civi_import_job extends civicrm_import_db {
 	 * $this->data->mapping [serialized array]	|	{key: matched csv column	value: API field (subfield)}
 	 * 
 	 * @returns (internal)
-	 * $this->contact_data [array]				|	key: matched csv column		value: contact API field
-	 * $this->location_data [array]	see: _location_matching()
+	 * (array) $this->contact_data				|	key: matched csv column		value: contact API field
+	 * (array) $this->location_data	see: _location_matching()
 	 */
 	private function mapping_sort() {
 		$mapping = unserialize($this->data->mapping);
@@ -326,10 +331,10 @@ class civi_import_job extends civicrm_import_db {
 	 * Format the location_API colum match
 	 *
 	 * @params (internal) 
-	 * $this->location_data [array]		|	key: matched csv column		value: API field (subfield)
+	 * (array) $this->location_data		|	key: matched csv column		value: API field (subfield)
 	 * 
 	 * @returns (internal)
-	 * $this->location_data [array]		|	key: [phone_home] 			value: array( column => field_name)	
+	 * (array) $this->location_data		|	key: [phone_home] 			value: array( column => field_name)	
 	 *									|	key: [phone_work]			value: array( column => field_name)	
 	 *									|	key: [phone_other]			value: array( column => field_name)	
 	 *									|	key: [phone_home]			value: array( column => field_name)	
@@ -428,16 +433,24 @@ class civi_import_job extends civicrm_import_db {
 				}
 			}
 			
-			$contact =& civicrm_contact_create($param);
-			
-			// bug fix: memory leak from API call
-			CRM_Core_DAO::freeResult();
-			
-			if($contact['is_error'] == 1) {
-				$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
+			// data filtering validation: 
+			// if the $param does not fit our validation requirement
+			// i.e. First name, Last name, Email, we do not import them.
+			if($this->check_filter($param)) {
+				$contact =& civicrm_contact_create($param);
+				// bug fix: memory leak from API call
+				CRM_Core_DAO::freeResult();
+				
+				if($contact['is_error'] == 1) {
+					$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
+				} else {
+					$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
+					$y++;
+				}
+				
 			} else {
-				$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
-				$y++;
+				// log this row as bad row
+				$this->log->_log("Bad name or email on CSV line $i," . implode(',', $this->csv->data[$i]), 'error');
 			}
 		}
 		
@@ -542,7 +555,7 @@ class civi_import_job extends civicrm_import_db {
 	 * Add contacts to groups if it is choosen from the import screen
 	 *
 	 * @params (internal) 
-	 * $this->contacts [array]			|	key: contact_id					value: array:(column => field_name)
+	 * (array) $this->contacts		|	key: contact_id					value: array:(column => field_name)
 	 * 
 	 * @returns void		
 	 */
@@ -583,7 +596,7 @@ class civi_import_job extends civicrm_import_db {
 	 * Add contacts to tags if it is choosen from the import screen
 	 *
 	 * @params (internal) 
-	 * $this->contacts [array]			|	key: contact_id					value: array:(column => field_name)
+	 * (array) $this->contacts			|	key: contact_id					value: array:(column => field_name)
 	 * 
 	 * @returns void		
 	 */
@@ -619,7 +632,16 @@ class civi_import_job extends civicrm_import_db {
 	}
 	
 	/*
-	 * Mailer function
+	 ***********************************************************************************
+	 * Send Email notifications, this is the only feedback method for the import
+	 *  
+	 * FIXME:
+	 * Email message needs to be customizable through configuration
+	 *
+	 * @params
+	 * (string) $type							| type of email sending out [started | finish | error]
+	 * 
+	 * @returns void
 	 */
 	private function mail($type = 'started') {
 		
@@ -688,6 +710,17 @@ class civi_import_job extends civicrm_import_db {
 		}
 	}
 	
+	/*
+	 ***********************************************************************************
+	 * Fetch filepath
+	 *
+	 * @params (internal) 
+	 * (int) $this->data->fid					| fid from drupal's {files} table
+	 * (string) $this->options['cms_prefix']	| CMS/CRM database prefix
+	 * 
+	 * @returns
+	 * $filepath								| Relative filepath stored in drupal's {files} table
+	 */
 	private function _fetch_filepath() {
 		
 		$query = sprintf("SELECT filepath FROM %s WHERE fid = %d", $this->options['cms_prefix'] . 'files', $this->data->fid);
@@ -696,7 +729,16 @@ class civi_import_job extends civicrm_import_db {
 		
 		return $file_path;
 	}
-	
+
+	/*
+	 ***********************************************************************************
+	 * Delete file from the file system
+	 *
+	 * @params (internal) 
+	 * (int) $this->data->fid						| fid from drupal's {files} table
+	 * 
+	 * @returns void
+	 */
 	private function file_delete() {
 	
 		$path = $this->_fetch_filepath();
@@ -708,6 +750,60 @@ class civi_import_job extends civicrm_import_db {
 			}
 		}
 	}
+	
+	
+	/*
+	 ***********************************************************************************
+	 * Reconnect to the db (stop gap measure against MySQL server time out 
+	 *
+	 * @params (internal) 
+	 * (array) $this->options['db']				| key: host, name, user, pass	|	value: db connection info
+	 * 
+	 * @returns void
+	 */
+	private function reset_db() {
+	
+		unset($this->db);
+		
+		// re-connect
+		parent::__construct($this->options['db']['host'], $this->options['db']['name'], $this->options['db']['user'], $this->options['db']['pass']);
+		
+	}
+
+
+	/*
+	 ***********************************************************************************
+	 * Filter out bad email addresses or names html tags
+	 *
+	 * @params 
+	 * (array) $contact_param				| key: API_field	|	value: API_field_value
+	 * 
+	 * @returns
+	 * (bool) TRUE
+	 * (bool) FALSE
+	 */
+	private function check_filter($contact_param = array()) {
+	
+		$check = array();
+	   
+	   if(isset($contact_param['first_name'])) {
+	   		$check[] = civicrm_import_validate::html_match($contact_param['first_name']);
+	   }
+	   if(isset($contact_param['last_name'])) {
+	   		$check[] = civicrm_import_validate::html_match($contact_param['last_name']);
+	   }
+	   if(isset($contact_param['email'])) {
+	   		$check[] = civicrm_import_validate::valid_email($contact_param['email']);
+	   }
+	   
+	   if(in_array(FALSE, $check)) {
+	   		return FALSE;
+	   } else {
+	   		return TRUE;
+	   }
+	   
+	}
+	
 	
 } // end of class
 

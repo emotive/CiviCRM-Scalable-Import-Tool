@@ -37,13 +37,13 @@ class civicrm_import_validate extends civicrm_import_db {
 	/*******************************************************************************************************************
 	 * Validate Standard Import Fields (Email, States, Zip Codes)
 	 * @param
-	 * mapping [array]			|	key:	csv column		value: field name
-	 * csv_filepath [string]	|							value: file path of the csv file
-	 * depth [int]				|							value: number of rows to scan in the csv file
-	 * csv_log [bool]			|							value: TRUE | FALSE  (whether log the error into csv or not)
+	 * (array) mapping			|	key:	csv column		value: field name
+	 * (string) csv_filepath	|							value: file path of the csv file
+	 * (int) depth				|							value: number of rows to scan in the csv file
+	 * (bool) csv_log			|							value: TRUE | FALSE  (whether log the error into csv or not)
 	 *
 	 * @returns
-	 * data [array]				|	key:	status			value: 0 | 1 (fail, pass)
+	 * (array) data				|	key:	status			value: 0 | 1 (fail, pass)
 	 * 							|	key:	[errors]		value: empty | [array]
 	 *							|	key:	report			value: report file path
 	 */	
@@ -134,10 +134,10 @@ class civicrm_import_validate extends civicrm_import_db {
 	/*******************************************************************************************************************
 	 * Validate SET custom field values (CheckBox, Select, Radio) against their values from the DB
 	 * @param
-	 * mapping [array]			|	key:	csv column		value: field name
-	 * csv_filepath [string]	|							value: file path of the csv file
-	 * depth [int]				|							value: number of rows to scan in the csv file
-	 * csv_log [bool]			|							value: TRUE | FALSE  (whether log the error into csv or not)
+	 * (array) mapping			|	key:	csv column		value: field name
+	 * (string) csv_filepath	|							value: file path of the csv file
+	 * (int) depth				|							value: number of rows to scan in the csv file
+	 * (bool) csv_log			|							value: TRUE | FALSE  (whether log the error into csv or not)
 	 *
 	 * @returns
 	 * 
@@ -227,6 +227,16 @@ class civicrm_import_validate extends civicrm_import_db {
 		}
 	} // end of validate custom field
 	
+	/*******************************************************************************************************************
+	 * Validate state value from abbreviated list and full list (US states)
+	 * @param
+	 * (string) state_input		|	value: raw state input
+	 *
+	 * @returns
+	 * 
+	 * TRUE						|	State value is valid
+	 * FALSE					|	State value is invalid
+	 */	
 	public static function valid_state($state_input) {
 	
 		$states_short = array('AL','AK','AS','AZ','AR','CA','CO','CT','DE','DC','FM','FL','GA','GU','HI','ID','IL','IN','IA','KS','KY','LA','ME','MH','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','MP','OH','OK','OR','PW','PA','PR','RI','SC','SD','TN','TX','UT','VT','VI','VA','WA','WV','WI','WY');
@@ -257,8 +267,16 @@ class civicrm_import_validate extends civicrm_import_db {
 		}
 	}
 	
-	// can't check for string length because sometimes
-	// it is presented in xxxxx-xxxx
+	/*******************************************************************************************************************
+	 * Validate zip code values
+	 * @param
+	 * (string) zip_code		|	value: raw zip code input
+	 *
+	 * @returns
+	 * 
+	 * TRUE						|	zip code value is valid
+	 * FALSE					|	zip code value is invalid
+	 */	
 	public static function valid_zip($zip_code) {
 		if(!is_numeric($zip_code)) {
 			return FALSE;
@@ -267,6 +285,16 @@ class civicrm_import_validate extends civicrm_import_db {
 		}
 	}
 	
+	/*******************************************************************************************************************
+	 * Validate email address
+	 * @param
+	 * (string) email			|	value: email input
+	 *
+	 * @returns
+	 * 
+	 * TRUE						|	email address value is valid
+	 * FALSE					|	email address value is invalid
+	 */	
 	public static function valid_email($email) {
 	   $isValid = true;
 	   $atIndex = strrpos($email, "@");
@@ -316,6 +344,52 @@ class civicrm_import_validate extends civicrm_import_db {
 	   }
 	   return $isValid;	
 	}
+
+   /*******************************************************************************************************************
+	* Check user input for HTML special characters and make sure it is not injected (Code from Drupal)
+	* @param
+	* (string) $text			|	value: text input
+	*
+	* @returns
+	* 
+	* encoded text
+	*/
+	public static function check_plain($text) {
+	
+	  static $php525;
+	
+	  if (!isset($php525)) {
+		$php525 = version_compare(PHP_VERSION, '5.2.5', '>=');
+	  }
+	
+	  if ($php525) {
+		return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+	  }
+	  return (preg_match('/^./us', $text) == 1) ? htmlspecialchars($text, ENT_QUOTES, 'UTF-8') : '';
+	  
+	}
+
+
+   /*******************************************************************************************************************
+	* Check user input for HTML tags using regex
+	* @param
+	* (string) $input		|	value: text input
+	*
+	* @returns
+	* TRUE					| contains HTML tags
+	* FALSE					| does not contain HTML tags
+	*/
+	public static function html_match($input) {
+		$match = preg_match("/<\/?\w+((\s+(\w|\w[\w-]*\w)(\s*=\s*(?:\".*?\"|'.*?'|[^'\">\s]+))?)+\s*|\s*)\/?>/i", $input);
+		
+		if($match > 0) {
+			return FALSE;
+		} else {
+			return TRUE;
+		}
+		
+	}
+	
 
 } // end of class
 
