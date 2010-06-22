@@ -43,7 +43,7 @@ function civicrm_import_config_settings() {
   );
   
   $form['civicrm_import_db']['civicrm_import_db_password'] = array(
-	'#type' => 'textfield',
+	'#type' => 'password',
 	'#title' => t('CMS/CRM Database Password'),
 	'#description' => t('password for the given database user'),
 	'#default_value' => variable_get('civicrm_import_db_password', 'root'),
