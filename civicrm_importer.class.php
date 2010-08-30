@@ -1,8 +1,10 @@
 <?php
 
-// The following line should be changed to the 
-// path of your drupal installation
-chdir('path/to/drupal/install');
+// Attempting to locate drupal base path
+// by compare it to the current script path
+$script_path = $_SERVER['DOCUMENT_ROOT'] . $_SERVER['PHP_SELF'];
+$base_path = substr($script_path, 0, strpos($script_path, '/sites/all/modules/'));
+chdir($base_path);
 
 require_once('./sites/default/civicrm.settings.php');
 
