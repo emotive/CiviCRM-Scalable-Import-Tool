@@ -7,6 +7,10 @@
  */
 function civicrm_import_config_settings() {
 
+	global $db_url;
+	$db = parse_url($db_url);
+	$db['path'] = trim($db['path'], '\/\\');
+
  $form['civicrm_import_db'] = array(
 	'#type' => 'fieldset',
 	'#title' => t('Database Configuration Settings'),
@@ -19,7 +23,7 @@ function civicrm_import_config_settings() {
 	'#type' => 'textfield',
 	'#title' => t('CMS/CRM Database Host'),
 	'#description' => t('Must be resolvable address, can be ip or domain names, or simply localhost '),
-	'#default_value' => variable_get('civicrm_import_db_host', 'localhost'),
+	'#default_value' => variable_get('civicrm_import_db_host', $db['host']),
 	'#size' => 20,
 	'#required' => TRUE,
   );
@@ -28,7 +32,7 @@ function civicrm_import_config_settings() {
 	'#type' => 'textfield',
 	'#title' => t('CMS/CRM Database Name'),
 	'#description' => t('Database name or schema name'),
-	'#default_value' => variable_get('civicrm_import_db_name', 'civicrm_import_data'),
+	'#default_value' => variable_get('civicrm_import_db_name', $db['path']),
 	'#size' => 20,
 	'#required' => TRUE,
   );
@@ -37,7 +41,7 @@ function civicrm_import_config_settings() {
 	'#type' => 'textfield',
 	'#title' => t('CMS/CRM Database Username'),
 	'#description' => t('username that has access to the walklist database'),
-	'#default_value' => variable_get('civicrm_import_db_username', 'admin'),
+	'#default_value' => variable_get('civicrm_import_db_username', $db['user']),
 	'#size' => 20,
 	'#required' => TRUE,
   );
@@ -46,7 +50,7 @@ function civicrm_import_config_settings() {
 	'#type' => 'password',
 	'#title' => t('CMS/CRM Database Password'),
 	'#description' => t('password for the given database user'),
-	'#default_value' => variable_get('civicrm_import_db_password', 'root'),
+	'#default_value' => variable_get('civicrm_import_db_password', $db['path']),
 	'#size' => 20,
   );
   
@@ -69,12 +73,12 @@ function civicrm_import_config_settings() {
 	'#default_value' => variable_get('civicrm_import_logging_toggle', 1),
 	'#required' => TRUE,
   );
-
+  
   $form['civicrm_import_import_logging']['civicrm_import_logging_path'] = array(
 	'#type' => 'textfield',
 	'#title' => t('Log PATH'),
 	'#description' => t('Full system path without the trailing slash, (the directory must have write permission)'),
-	'#default_value' => variable_get('civicrm_import_logging_path', 'path/to/log/files'),
+	'#default_value' => variable_get('civicrm_import_logging_path', $_SERVER['DOCUMENT_ROOT'].'/sites/default/files/civicrm_import'),
 	'#size' => 20,
 	'#required' => TRUE,
   );
