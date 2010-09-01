@@ -78,7 +78,7 @@ function civicrm_import_config_settings() {
 	'#type' => 'textfield',
 	'#title' => t('Log PATH'),
 	'#description' => t('Full system path without the trailing slash, (the directory must have write permission)'),
-	'#default_value' => variable_get('civicrm_import_logging_path', $_SERVER['DOCUMENT_ROOT'].'/sites/default/files/civicrm_import'),
+	'#default_value' => variable_get('civicrm_import_logging_path', rtrim($_SERVER['DOCUMENT_ROOT'], '\/\\').'/sites/default/files/civicrm_import'),
 	'#size' => 20,
 	'#required' => TRUE,
   );
