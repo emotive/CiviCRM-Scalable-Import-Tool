@@ -3,6 +3,7 @@
  * by Chang Xiao (chang@emotivellc.com)
  * EMotive LLC, 2010
  * GNU GENERAL LICENSE - see LICENSE.txt
+ * Last Update: 9/20/2010
  ****************************************/
  
 1. Requirements
@@ -10,8 +11,9 @@
 3. Configuration 
 4. Usage
 5. Known Issues
-6. Future considerations
-7. Change log
+6. Upcoming features
+7. Future considerations
+8. Change log
 
 /*************************************************************
  * 1. Requirements
@@ -38,17 +40,7 @@ This module requires the following:
 	
 	2. Enable the module "CiviCRM Mass Import" from admin/build/modules
 	
-	3. Configurate the module from admin/civi_import/config
-	
-	4. Change the following line in *civicrm_importer.class.php*
-	* chdir('path/to/drupal_install');*
-	This should be changed to the *full path* of your drupal installation such as 
-	chdir('/var/www'), etc.
-	
-	5. Change the following line in *civicrm_import.cron.php*
-	* chdir('path/to/drupal_install');*
-	This should be changed to the *full path* of your drupal installation such as 
-	chdir('/var/www'), etc.
+	3. Configure the module from admin/civi_import/config
 
 /*************************************************************
  * 3. Configuration
@@ -98,9 +90,8 @@ This module requires the following:
 	4. Select grouping/tagging options
 	5. Check quick validation report, Import
 	
-	(If you are going to use cron.php, you need to edit the first line of
-	$url = 'http://yoursite.com/sites/all/modules/civicrm_import/civicrm_import.cron.php';
-	to your drupal site url)
+	(Optional, you can run cron.php in your cron job instead of civicrm_import.cron.php,
+	it simply uses a issues shell_exec cURL to prevent timeout on some servers)
 	
 /*************************************************************
  * 5. Known Issues
@@ -118,7 +109,20 @@ This module requires the following:
 	   those fields, they must be in yyyy-mm-dd in order to be properly imported
 	   
 /*************************************************************
- * 6. Future Consideration
+ * 6. Upcoming Features
+ ************************************************************/
+ 
+	1.	Ability to append contact data to update existing contacts
+	2.	Track/view Import process
+	3.  Add new group during the import process
+	4.  Integrate mapping information with CiviCRM to save import mapping
+
+	If you have other ideas and suggestions, please contact at chang@emotivellc.com
+	and feel free to contribute to the code
+
+
+/*************************************************************
+ * 7. Future Consideration
  ************************************************************/
  
 	1.	Further Decoupling of processes (Email, Validation, Logging)
@@ -133,8 +137,25 @@ This module requires the following:
 	and feel free to contribute to the code
 	
 /*************************************************************
- * 7. Change log
+ * 8. Change log
  ************************************************************/
  
+ Alpha 3 release: 9/20/2010
+ ------
+ Note:
+ ------
+ Added auto detect database settings, logging path from configuration page
+ Added auto path detection to drupal installation so no longer need to change path in
+ civicrm_import.cron.php, cron.php and civicrm_importer.class.php
+ 
  Alpha 2 release: 6/10/2010
+ ------
+ Note:
+ ------
+ Fixed CiviCRM Contact API Memory Leak
+ 
  Alpha 1 release: 6/5/2010
+ ------
+ Note:
+ ------
+ First Working Version
