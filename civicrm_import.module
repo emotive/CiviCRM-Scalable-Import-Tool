@@ -195,7 +195,9 @@ function theme_civicrm_import_form($form) {
  * Step 3: Quick Validation
  */
 function civicrm_import_form(&$form_state, $uid) {
-
+	
+	drupal_add_js(drupal_get_path('module', 'civicrm_import') . '/js/civicrm_import.js');
+	
 	$step = isset($form_state['values']) ? (int)$form_state['storage']['step'] : 0;
 	// Store next step.
 	$form_state['storage']['step'] = $step + 1;
@@ -315,21 +317,42 @@ function civicrm_import_form(&$form_state, $uid) {
 		
 		$civicrm_groups = _civicrm_import_fetch_tags_groups();
 		
+		$form['groups_n_tags']['existing_new'] = array(
+			'#type' => 'radios',
+			'#title' => 'Group(s) and Tag(s) options',
+			'#options' => array(
+				0 => 'Import into existing group(s) and tag(s)',
+				1 => 'Import into new group(s) and tag(s)',
+			),
+		);	
+		
 		$form['groups_n_tags']['groups_existing'] = array(
+			'#prefix' => '<div class="groups_n_tags_existing" style="display:none">',
 			'#type' => 'select',
 			'#title' => 'Add imported records to group(s)',
 			'#multiple' => TRUE,
 			'#size' => 5,
 			// handle default if no groups have been created
 			'#options' => $civicrm_groups,
+			'#suffix' => '</div>',
 		);
 		
 		 $civicrm_tags = _civicrm_import_fetch_tags_groups(FALSE);
 		
 		$form['groups_n_tags']['tags_existing'] = array(
+			'#prefix' => '<div class="groups_n_tags_existing" style="display:none">',
 			'#type' => 'checkboxes',
 			'#title' => 'Tag imported records',
 			'#options' => $civicrm_tags,
+			'#suffix' => '</div>',
+		);
+		
+		$form['groups_n_tags']['group_new'] = array(
+			'#prefix' => '<div class="groups_n_tags_new" style="display:none">',
+			'#type' => 'textfield',
+			'#title' => 'Group name (new)',
+			'#description' => t('Input the new group name here'),
+			'#suffix' => '</div>',
 		);
 	
 	} 
@@ -502,17 +525,29 @@ function civicrm_import_form_submit($form, &$form_state) {
 		// Chang is here, bug: form_state['values'] is not carried over after step 3
 		$form_state['values'] = $form_state['storage']['values'];
 		
-		// set groups
-		$groups_add = (empty($form_state['values']['groups_existing'])) ? '' : serialize($form_state['values']['groups_existing']);
 		
-		// if no tags applied, make it blank, also get rid of 0 value tags
-		$empty_tags = 0;
-		foreach($form_state['values']['tags_existing'] as $key => $value) {
-			if($value == 0) {
-				unset($form_state['values']['tags_existing'][$key]);
+		# adding to existing groups
+		if($form_state['values']['existing_new'] == 0) {
+			// set groups
+			$groups_add = (empty($form_state['values']['groups_existing'])) ? '' : serialize($form_state['values']['groups_existing']);
+			
+			// if no tags applied, make it blank, also get rid of 0 value tags
+			$empty_tags = 0;
+			foreach($form_state['values']['tags_existing'] as $key => $value) {
+				if($value == 0) {
+					unset($form_state['values']['tags_existing'][$key]);
+				}
 			}
+			
+			$tags_add = (empty($form_state['values']['tags_existing'])) ? '' : serialize($form_state['values']['tags_existing']);
 		}
-		$tags_add = (empty($form_state['values']['tags_existing'])) ? '' : serialize($form_state['values']['tags_existing']);
+		# adding to new group
+		elseif($form_state['values']['existing_new'] == 1) {
+			# set groups
+			# we are serializing a string instead of an array, this will be used to distinguish
+			# if we are creating new group or not for the import
+			$groups_add = ($form_state['values']['group_new'] == '') ? '' : serialize($form_state['values']['group_new']);
+		}
 		
 		// get mapping
 		$_mapping = array();

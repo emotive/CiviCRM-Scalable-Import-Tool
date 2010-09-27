@@ -16,6 +16,7 @@ $config =& CRM_Core_Config::singleton();
 require_once('api/v2/Contact.php');
 require_once('api/v2/Location.php');
 require_once('api/v2/GroupContact.php');
+require_once('api/v2/Group.php');
 require_once('api/v2/EntityTag.php');
 
 // Utilities
@@ -558,7 +559,10 @@ class civi_import_job extends civicrm_import_db {
 	 * Add contacts to groups if it is choosen from the import screen
 	 *
 	 * @params (internal) 
-	 * (array) $this->contacts		|	key: contact_id					value: array:(column => field_name)
+	 * (array) $this->contacts					|	key: contact_id					value: array:(column => field_name)
+	 * (mixed) $this->data->import_groups
+	 *		   (array) | key: [numerical index] | value: group_id (existing)
+	 *		   (string)  name of the new group to create
 	 * 
 	 * @returns void		
 	 */
@@ -569,28 +573,68 @@ class civi_import_job extends civicrm_import_db {
 		// all the group the contacts will be added to
 		$groups = unserialize($this->data->import_groups);
 		
-		foreach($groups as $group_id) {
-			$params = array(
-				'group_id' => $group_id,
+		# Determine if new group needs to be created
+		# case 1: existing groups
+		if(is_array($groups)) {
+			foreach($groups as $group_id) {
+				$params = array(
+					'group_id' => $group_id,
+				);
+				
+				$i = 1;
+				// add the contact_ids to the param
+				foreach($contact_ids as $contact_id) {
+					$contact_key = 'contact_id.' . $i;
+					$params[$contact_key] = $contact_id;
+					$i++;
+				}
+				
+				$contact_group_add_result = civicrm_group_contact_add($params);
+				
+				// what happens if it throws an error? is it better to add each person individually?
+				if($contact_group_add_result['is_error'] == 1) {
+					$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
+				} else {
+					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group_id ' . $group_id);
+					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group_id ' . $group_id);
+				}
+			}
+		# case 2: we get a string, create a new group first
+		} else {
+			$group_params = array(
+				'name'        => str_replace(' ', '_', strtolower($groups)), // machine readable name
+				'title'       => $groups,
+				'description' => '',
+				'is_active'   => 1,
+				'visibility'  => 'User and User Admin Only',
+				'group_type'  => array( '1' => 1, '2' => 1 ),
 			);
-			
-			$i = 1;
-			// add the contact_ids to the param
-			foreach($contact_ids as $contact_id) {
-				$contact_key = 'contact_id.' . $i;
-				$params[$contact_key] = $contact_id;
-				$i++;
-			}
-			
-			$contact_group_add_result =& civicrm_group_contact_add($params);
-			
-			// what happens if it throws an error? is it better to add each person individually?
-			if($contact_group_add_result['is_error'] == 1) {
+
+			$result = civicrm_group_add( $group_params );
+			if ( civicrm_error ( $result )) {
+				# God forbid adding group causes error
 				$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
+				# Send an email
 			} else {
-				$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group_id ' . $group_id);
-				$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group_id ' . $group_id);
-			}
+				$params = array(
+					'group_id' => $result['result'],
+				);
+				$i = 1;
+				foreach($contact_ids as $contact_id) {
+					$contact_key = 'contact_id.' . $i;
+					$params[$contact_key] = $contact_id;
+					$i++;
+				}
+				
+				$contact_group_add_result = civicrm_group_contact_add($params);
+				if($contact_group_add_result['is_error'] == 1) {
+					$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
+					# Send an email
+				} else {
+					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group_id ' . $group_id);
+					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group_id ' . $group_id);
+				}
+			}			
 		}
 	}
 
@@ -803,8 +847,6 @@ class civi_import_job extends civicrm_import_db {
 	   }
 	   
 	}
-	
-	
 } // end of class
 
 ?>
