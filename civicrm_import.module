@@ -146,7 +146,7 @@ function civicrm_import_help_guide() {
 function civicrm_import_main() {
 	
 	global $user;
-	
+	drupal_add_js(drupal_get_path('module', 'civicrm_import') . '/js/civicrm_import.js');
 	$output .= drupal_get_form('civicrm_import_form', $user->uid);;
 	return $output;
 }
