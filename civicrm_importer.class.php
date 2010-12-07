@@ -138,11 +138,16 @@ class civi_import_job extends civicrm_import_db {
 	 */
 	public function init() {
 	
+		// Fetch the most recent active import job
+		// Match the import fields to CiviCRM API fields
 		$this->fetch_import_job();
 		$this->mapping_sort();
 		
 		$this->import_status_update('start');
-		//$this->mail('started');
+		
+		// # Feature waiting:
+		// Provide alternative SMTP for sending out mails
+		$this->mail('started');
 		
 		
 		// splitting up the files
@@ -178,7 +183,7 @@ class civi_import_job extends civicrm_import_db {
 		// assuming if fatal errors occured before this step, this will never be called
 		$this->file_delete();
 		$this->import_status_update('finish');
-		//$this->mail('finish');
+		$this->mail('finish');
 		
 		echo 'complete';
 		

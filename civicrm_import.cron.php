@@ -10,7 +10,7 @@ chdir($base_path);
 require_once './includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_DATABASE);
 
-ini_set('php_value memory_limit', '512M');
+// ini_set('php_value memory_limit', '512M');
 set_time_limit(0);
 
 main();
