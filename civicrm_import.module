@@ -37,8 +37,50 @@ function civicrm_import_menu() {
 		'type' => MENU_NORMAL_ITEM,
 	);
 	
+	$items['admin/civi_import/job'] = array(
+		'title' => 'View Import Jobs',
+		'access arguments' => array('administer site configuration'),
+		'page callback' => 'civicrm_import_job_job',
+		'type' => MENU_NORMAL_ITEM,		
+	);
+	
   return $items;
 }
+
+function civicrm_import_job_job() {
+	
+	$data = array();
+	
+	#fetch all current jobs
+	$query = db_query("SELECT * FROM {civicrm_import_job}");
+	
+	while($result = db_fetch_object($query)) {
+		$data[] = $result;
+	}
+	
+}
+
+function theme_civicrm_import_job_job($jobs = array()) {
+	if(empty($jobs)) {
+		return 'no jobs found';
+	}
+	
+	$headers = array(
+		'Job ID',
+		'Date Submitted',
+		'Date Started',
+		'Date Complete',
+		'Status',
+		'Total Contacts',
+		'Contacts Imported',
+	);
+	
+	for($i = 0; $i< count($jobs); $i++) {
+		
+	}
+	
+}
+
 
 /**
 * Implementation of hook_menu

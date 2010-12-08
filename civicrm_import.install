@@ -114,9 +114,28 @@ function civicrm_import_schema() {
 				'not null' => TRUE,
 				'description' => t('Date the job is completed'),
 			),
+			'contact_count' => array(
+				'type' => 'int',
+				'size' => 'big',
+				'description' => t('Number of contacts found on the CSV file'),
+				'default' => 0,
+			),
+			'import_count' => array(
+				'type' => 'int',
+				'size' => 'big',
+				'description' => t('Number of contacts imported'),
+				'default' => 0,
+			),
+			'location_count' => array(
+				'type' => 'int',
+				'size' => 'big',
+				'description' => t('Number of contacts location (address, phone number, etc imported'),
+				'default' => 0,
+			),
 		),
 		'primary key' => array('jobid'),
 	);
+	
 	
 	return $schema;
 

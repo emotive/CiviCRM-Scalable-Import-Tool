@@ -85,6 +85,10 @@ class civi_import_job extends civicrm_import_db {
 	// Created Contacts using the contact API
 	private $contacts = array();
 	
+	private $contact_imported = 0;
+	
+	private $location_imported = 0;
+	
 	// Error counter
 	private $errors;
 	
@@ -138,15 +142,10 @@ class civi_import_job extends civicrm_import_db {
 	 */
 	public function init() {
 	
-		// Fetch the most recent active import job
-		// Match the import fields to CiviCRM API fields
 		$this->fetch_import_job();
 		$this->mapping_sort();
 		
 		$this->import_status_update('start');
-		
-		// # Feature waiting:
-		// Provide alternative SMTP for sending out mails
 		$this->mail('started');
 		
 		
@@ -165,11 +164,9 @@ class civi_import_job extends civicrm_import_db {
 					$this->process_import($split_files[$i]);
 				}
 			}
-			
 			for($i=0;$i<count($split_files);$i++) {
 				unlink($split_files[$i]);
 			}			
-			
 		} else {
 			// in this case we are just parsing the string returned by the file splitter
 			$this->process_import($split_files, $offset);
@@ -185,8 +182,7 @@ class civi_import_job extends civicrm_import_db {
 		$this->import_status_update('finish');
 		$this->mail('finish');
 		
-		echo 'complete';
-		
+		exit();
 	}
 	
 	/*
@@ -202,6 +198,7 @@ class civi_import_job extends civicrm_import_db {
 	 */		
 	private function process_import($input, $offset = 0) {
 	
+		// parse the CSV file
 		$this->_parse($input, $offset);
 		
 		// create contacts, custom fields
@@ -399,6 +396,20 @@ class civi_import_job extends civicrm_import_db {
 			$this->csv->offset = $offset;
 			$this->csv->heading = FALSE;
 			$this->csv->parse($input);
+			
+			// update the number of contacts
+			$query = sprintf("SELECT contact_count FROM %s WHERE jobid = %d",
+				$this->options['cms_prefix'] . 'civicrm_import_job',
+				$this->data['jobid']);
+			
+			$count = $this->db->get_var($query);
+			$count+=count($this->csv->data);
+			
+			$this->db->query("UPDATE %s SET contact_count = %d WHERE jobid = %d",
+				$this->options['cms_prefix'] . 'civicrm_import_job',
+				$count,
+				$this->data['jobid']);
+			
 	}	
 	
 	/*******************************************************************
@@ -421,7 +432,6 @@ class civi_import_job extends civicrm_import_db {
 			$this->contacts = array();
 		}
 		
-		$y = 0;
 		for($i = 0; $i< count($this->csv->data); $i++) {
 			
 			$param = array(
@@ -454,15 +464,20 @@ class civi_import_job extends civicrm_import_db {
 					$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
 				} else {
 					$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
-					$y++;
+					$this->contact_imported++;
+					
+					// record the contact import count for tracking
+					if($this->contact_imported % 100 == 0) {
+						$this->update_count('contact');
+					}
 				}
-				
 			} else {
 				// log this row as bad row
 				$this->log->_log("Bad name or email on CSV line $i," . implode(',', $this->csv->data[$i]), 'error');
 			}
 		}
 		
+		$this->update_count('contact');
 		$this->log->_log($y . ' number of contact records created from ' . count($this->csv->data) . ' number of rows parsed from CSV file');
 		
 		// free the original parsed csv from memory
@@ -478,7 +493,6 @@ class civi_import_job extends civicrm_import_db {
 	private function location_create() {
 		
 		$x = 0;
-		$y = 0;
 		foreach($this->contacts as $contact_id => $column_field_array) {
 			
 			$location_param = array(
@@ -550,13 +564,44 @@ class civi_import_job extends civicrm_import_db {
 			if($location_result2['is_error'] == 1) {
 				$this->log->_log('Error (Location API Call) on ContactID: ' . $contact_id . ': ' . $location_result2['error_message'], 'error');
 			} else {
-				$y++;
+				$this->location_imported++;
+					// record the number of location data imported
+					if($this->location_imported % 100 == 0) {
+						$this->update_count('location');
+					}
 			}
 		}
 		
+		$this->update_count('location');
 		$this->log->_log($x . ' number of pre-location data imported.'); // from ' . count($this->contacts) . ' number of created contacts');
-		$this->log->_log($y . ' number of location data imported.'); // from ' . count($this->contacts) . ' number of created contacts');
+		$this->log->_log($this->location_imported . ' number of location data imported.'); // from ' . count($this->contacts) . ' number of created contacts');
 		
+	}
+	
+	private function update_count($count = 'contact') {
+		
+		$query = '';
+		
+		switch($count) {
+			case 'location':
+				$query = sprintf("UPDATE %s SET location_count = %d WHERE jobid = %d",
+							$this->options['cms_prefix'] . '_civicrm_import',
+							$this->location_imported,
+							$this->data['jobid']
+						);
+			break;
+			
+			case 'contact':
+			default:
+				$query = sprintf("UPDATE %s SET import_count = %d WHERE jobid = %d",
+					$this->options['cms_prefix'] . '_civicrm_import',
+					$this->contact_imported,
+					$this->data['jobid']
+				);
+			break;
+		}
+		
+		$this->db->query($query);
 	}
 
 	/*
