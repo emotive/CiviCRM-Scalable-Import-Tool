@@ -40,45 +40,142 @@ function civicrm_import_menu() {
 	$items['admin/civi_import/job'] = array(
 		'title' => 'View Import Jobs',
 		'access arguments' => array('administer site configuration'),
-		'page callback' => 'civicrm_import_job_job',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('civicrm_import_job_form'),
 		'type' => MENU_NORMAL_ITEM,		
+	);
+	
+	$items['admin/civi_import/job/delete/%'] = array(
+		'title' => 'Delete import job',
+		'access arguments' => array('administer site configuration'),
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('civicrm_import_job_delete_form', 4),
+		'type' => MENU_CALLBACK,		
 	);
 	
   return $items;
 }
 
-function civicrm_import_job_job() {
+
+/*
+ * View the import
+ */
+function civicrm_import_job_form() {
 	
-	$data = array();
+	$_query = civicrm_import_job_sort();
 	
-	#fetch all current jobs
-	$query = db_query("SELECT * FROM {civicrm_import_job}");
+	$query = pager_query($_query['query'], 25, 0, null);
 	
-	while($result = db_fetch_object($query)) {
-		$data[] = $result;
+	while($results = db_fetch_object($query)) {
+		if($results->cron == 0) {
+			$cron = 'No';
+		} elseif($results->cron == 1) {
+			$cron = 'Yes';
+		} else {
+			$cron = 'Error';
+		}
+		$rows[] = array(
+			$form['toggle'][$results->jobid] = array('#type' => 'checkbox'),
+			$form['jobid'][$results->jobid] = array('#value' => $results->jobid),
+			// $form['status'][$results->jobid] = array('#value' => $results->status),
+			$form['cron'][$results->jobid] = array('#value' => $cron),
+			// $form['contact_count'][$results->jobid] = array('#value' => $results->contact_count),
+			$form['import_count'][$results->jobid] = array('#value' => $results->import_count . '/' . $results->contact_count),
+			$form['date_started'][$results->jobid] = array('#value' => ($results->date_started == '0000-00-00 00:00:00') ? 'Not Started' : $results->date_started),
+			$form['date_complete'][$results->jobid] = array('#value' => ($results->date_complete == '0000-00-00 00:00:00') ? 'Not Completed' : $results->date_complete),
+			$form['action'][$results->jobid] = array('#value' => l('Delete', 'admin/civi_import/job/delete/' . $results->jobid)),
+		);
 	}
+	
+	return $form;
 	
 }
 
-function theme_civicrm_import_job_job($jobs = array()) {
-	if(empty($jobs)) {
-		return 'no jobs found';
-	}
+function theme_civicrm_import_job_form($form) {
 	
-	$headers = array(
-		'Job ID',
-		'Date Submitted',
-		'Date Started',
-		'Date Complete',
-		'Status',
-		'Total Contacts',
-		'Contacts Imported',
+	$_query = civicrm_import_job_sort();
+	$query = pager_query($_query['query'], 25, 0, null);
+	unset($_query['header'][3]);
+	ksort($_query['header']);
+	
+	$header = array(
+		theme('table_select_header_cell'),
 	);
 	
-	for($i = 0; $i< count($jobs); $i++) {
-		
+	$header = array_merge($header, $_query['header']);
+	
+	while($results = db_fetch_object($query)) {
+		$rows[] = array(
+			drupal_render($form['toggle'][$results->jobid]),
+			drupal_render($form['jobid'][$results->jobid]),
+			// drupal_render($form['status'][$results->jobid]),
+			drupal_render($form['cron'][$results->jobid]),
+			// drupal_render($form['contact_count'][$results->jobid]),
+			drupal_render($form['import_count'][$results->jobid]),
+			drupal_render($form['date_started'][$results->jobid]),
+			drupal_render($form['date_complete'][$results->jobid]),
+			drupal_render($form['action'][$results->jobid]),
+		);
 	}
 	
+	$output .= theme('table', $header, $rows, array('style' => 'width:100%'));
+	
+	
+	$output .= theme('pager');
+	
+	return $output;
+}
+
+function civicrm_import_job_sort() {
+	
+	$fields = array(
+		'Job ID' => 'jobid',
+		// 'Status' => 'status',
+		'Processed' => 'cron',
+		'Contacts Detected' => 'contact_count',
+		'Contacts Imported' => 'import_count',
+		'Start Date' => 'date_started',
+		'Complete Date' => 'date_complete',
+	);
+	
+	// return the paged query
+	return drupal_module_form::_sort($fields, 'civicrm_import_job', null, 'Action');
+}
+
+function civicrm_import_job_delete_form(&$form_state, $jobid) {
+		
+	$form['param'] = array(
+		'#type' => 'value',
+		'#value' => $jobid,
+	);
+
+	$form['notes'] = array(
+		'#type' => 'markup',
+		'#prefix' => '<h3>',
+		'#suffix' => '</h3>',
+		'#value' => t("<br /> Are you sure you want to <strong> Delete </strong> this Import job?"),
+	);
+
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Submit')
+	);
+
+	$form['cancel'] = array(
+		'#type' => 'button',
+		'#value' => t('Cancel'),
+		'#attributes' => array('onclick' => 'javascript: history.go(-1); return false;'),
+	);
+	
+	return $form;
+}
+
+function civicrm_import_job_delete_form_submit($form, &$form_state) {
+
+	db_query("DELETE FROM {civicrm_import_job} WHERE jobid = %d", $form_state['values']['param']);
+	drupal_set_message('Import job successfully deleted');
+
+	$form_state['redirect'] = 'admin/civi_import/job';
 }
 
 
@@ -87,12 +184,15 @@ function theme_civicrm_import_job_job($jobs = array()) {
 */
 function civicrm_import_theme() {
   return array(
-    'civicrm_import_form' => array(
+    'civicrm_import_import_form' => array(
       'arguments' => array('form' => NULL),
     ),
     'civicrm_import_stub' => array(
       'arguments' => array(),
     ),
+	'civicrm_import_job_form' => array(
+		'arguments' => array('form' => NULL),
+	),
   );
 }
 
@@ -189,7 +289,7 @@ function civicrm_import_main() {
 	
 	global $user;
 	drupal_add_js(drupal_get_path('module', 'civicrm_import') . '/js/civicrm_import.js');
-	$output .= drupal_get_form('civicrm_import_form', $user->uid);;
+	$output .= drupal_get_form('civicrm_import_import_form', $user->uid);;
 	return $output;
 }
 
@@ -197,7 +297,7 @@ function civicrm_import_main() {
  * Form Theming function
  */
  
-function theme_civicrm_import_form($form) {
+function theme_civicrm_import_import_form($form) {
 
 	if($form['step']['#value'] == 0) {
 		$output = drupal_render($form['file']);
@@ -236,7 +336,7 @@ function theme_civicrm_import_form($form) {
  * Step 2: Select Mapping and other information
  * Step 3: Quick Validation
  */
-function civicrm_import_form(&$form_state, $uid) {
+function civicrm_import_import_form(&$form_state, $uid) {
 	
 	drupal_add_js(drupal_get_path('module', 'civicrm_import') . '/js/civicrm_import.js');
 	
@@ -497,7 +597,7 @@ function civicrm_import_form(&$form_state, $uid) {
 	return $form;
 }
 
-function civicrm_import_form_validate($form, &$form_state) {
+function civicrm_import_import_form_validate($form, &$form_state) {
 	switch($form_state['storage']['step']) {
 			case 1:
 				if($form_state['values']['civicrm_import_file'] == '') {
@@ -533,7 +633,7 @@ function civicrm_import_form_validate($form, &$form_state) {
 	}
 }
 
-function civicrm_import_form_submit($form, &$form_state) {
+function civicrm_import_import_form_submit($form, &$form_state) {
 
 	// return if we haven't reached the last step of the form yet
 	if($form_state['storage']['step'] < 3) {
@@ -604,7 +704,7 @@ function civicrm_import_form_submit($form, &$form_state) {
 		unset($form_state['storage']);
 		
 		if($query) {
-			drupal_set_message(t('Your import job has been scheduled, it will you will receive an email when it completes'));
+			drupal_set_message(t('Your import job has been scheduled, you will receive an email when it completes'));
 		} else {
 			drupal_set_message(t('Error scheduling the import job'), 'error');
 		}
@@ -792,4 +892,5 @@ function civicrm_import_flattenArray(array $array){
 	}
 	return $ret_array;
 }
+
 ?>

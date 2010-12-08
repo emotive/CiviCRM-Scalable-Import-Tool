@@ -20,7 +20,11 @@ require_once('api/v2/Group.php');
 require_once('api/v2/EntityTag.php');
 
 // Utilities
-require_once('lib/parsecsv.class.php');
+
+if(!class_exists('parseCSV')) {
+	require_once('lib/parsecsv.class.php');
+}
+
 require_once('lib/ez_sql_core.php');
 require_once('lib/ez_sql_mysql.php');
 require_once('lib/class.phpmailer.php');
@@ -400,15 +404,17 @@ class civi_import_job extends civicrm_import_db {
 			// update the number of contacts
 			$query = sprintf("SELECT contact_count FROM %s WHERE jobid = %d",
 				$this->options['cms_prefix'] . 'civicrm_import_job',
-				$this->data['jobid']);
+				$this->data->jobid);
 			
 			$count = $this->db->get_var($query);
 			$count+=count($this->csv->data);
 			
-			$this->db->query("UPDATE %s SET contact_count = %d WHERE jobid = %d",
-				$this->options['cms_prefix'] . 'civicrm_import_job',
-				$count,
-				$this->data['jobid']);
+			$this->db->query(
+				sprintf("UPDATE %s SET contact_count = %d WHERE jobid = %d",
+					$this->options['cms_prefix'] . 'civicrm_import_job',
+					$count,
+					$this->data->jobid)
+			);
 			
 	}	
 	
@@ -577,7 +583,17 @@ class civi_import_job extends civicrm_import_db {
 		$this->log->_log($this->location_imported . ' number of location data imported.'); // from ' . count($this->contacts) . ' number of created contacts');
 		
 	}
-	
+
+
+	/*
+	 ***********************************************************************************
+	 * Updatethe import count
+	 *
+	 * @params 
+	 * (string) $count				Type of counter: contact or location
+	 * 
+	 * @returns void		
+	 */
 	private function update_count($count = 'contact') {
 		
 		$query = '';
@@ -585,18 +601,18 @@ class civi_import_job extends civicrm_import_db {
 		switch($count) {
 			case 'location':
 				$query = sprintf("UPDATE %s SET location_count = %d WHERE jobid = %d",
-							$this->options['cms_prefix'] . '_civicrm_import',
+							$this->options['cms_prefix'] . 'civicrm_import_job',
 							$this->location_imported,
-							$this->data['jobid']
+							$this->data->jobid
 						);
 			break;
 			
 			case 'contact':
 			default:
 				$query = sprintf("UPDATE %s SET import_count = %d WHERE jobid = %d",
-					$this->options['cms_prefix'] . '_civicrm_import',
+					$this->options['cms_prefix'] . 'civicrm_import_job',
 					$this->contact_imported,
-					$this->data['jobid']
+					$this->data->jobid
 				);
 			break;
 		}
