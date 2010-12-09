@@ -129,4 +129,20 @@ class drupal_module_form {
 		// return pager_query($query, 50, 0, null);
 	}
 	
+	public static function _insert() {
+		$args = func_get_args();
+		
+		// more readable
+		$fields = array_keys($args[0]);
+		$values = array_values($args[0]);
+		$table = $args[1];
+		
+		$_fields = '`' . implode('`, `', $fields) . '`';
+		$_values = "'" . implode("', '", $values) . "'";
+		
+		$query = sprintf("INSERT INTO {%s} (%s) VALUES (%s)", $table, $_fields, $_values);
+		
+		return $query;
+	}
+	
 }

@@ -132,8 +132,8 @@ function civicrm_import_job_sort() {
 		'Job ID' => 'jobid',
 		// 'Status' => 'status',
 		'Processed' => 'cron',
-		'Contacts Detected' => 'contact_count',
-		'Contacts Imported' => 'import_count',
+		'Contacts Imported' => 'contact_count',
+		'Contacts Detected' => 'import_count',
 		'Start Date' => 'date_started',
 		'Complete Date' => 'date_complete',
 	);
@@ -296,11 +296,11 @@ function civicrm_import_main() {
 /*
  * Form Theming function
  */
- 
 function theme_civicrm_import_import_form($form) {
 
 	if($form['step']['#value'] == 0) {
-		$output = drupal_render($form['file']);
+		$output = drupal_render($form['import_type']);
+		$output .= drupal_render($form['file']);
 	} elseif($form['step']['#value'] == 1) {
 		// for step 2
 		$rows = _civicrm_import_mapping($form['fid']['#value'], $form['import_header']['#value'], TRUE);
@@ -327,7 +327,6 @@ function theme_civicrm_import_import_form($form) {
 	$output .= drupal_render($form);
 	
 	return $output;
-	
 }
 
 /*
@@ -355,7 +354,32 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#value' => $uid,
 		);
 		
-		$import_file_list = _civicrm_import_file_list($uid);
+		// #FUTURE FEATURE 
+		// Query the file table to see if the current user
+		// has file uploaded to the FTP, if so, check the path
+		// to see if the file exists, if so provide user the ability
+		// to choose from files uploaded via FTP (for larger files)
+		
+		// $import_file_list = _civicrm_import_file_list($uid);
+		
+		$form['import_type'] = array(
+			'#type' => 'fieldset',
+			'#title' => t('Import Type'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+		
+		$form['import_type']['import_type_choice'] = array(
+			'#type' => 'radios',
+			'#title' => t('Choose Import Type'),
+			'#options' => array(
+				'import' => t('New Import'),
+				'append' => t('Data Append'),
+			),
+			'#description' => t('Choose "New Import" if wish to import new contacts into the database, choose "Data Append" if you wish to append contact data to existing contacts on the database, *An unique ID must be used to match append data to existing contacts in the system.*'), 
+			'#required' => TRUE,
+		);
+		
 		
 		$form['file'] = array(
 			'#type'=> 'fieldset',
@@ -382,13 +406,17 @@ function civicrm_import_import_form(&$form_state, $uid) {
 	
 	} elseif($step == 1) {
 		
+		// saving the fid (for the raw import file) and import heading options into $form_state['storage']
 		$form_state['storage']['fid'] = upload_element_save($form_state['values']['civicrm_import_file'], 'civicrm_import/' . $form_state['values']['uid'], FILE_EXISTS_RENAME);		
-	
-		// $form_state['storage']['fid'] = $form_state['values']['civicrm_import_file'];
-
 		$form_state['storage']['import_header'] = ($form_state['values']['civicrm_import_file_header'] == 1) ? true : false;
 		
+		// return the first two rows of CSV file
 		$rows = _civicrm_import_mapping($form_state['storage']['fid'], $form_state['storage']['import_header']);
+		
+		$form['_import_type_choice'] = array(
+			'#type' => 'value',
+			'#value' => $form_state['values']['import_type_choice'],
+		);
 		
 		$form['fid'] = array(
 			'#type' => 'value',
@@ -405,6 +433,8 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#value' => $rows,
 		);
 		
+		// Create form elements so the theme function
+		// can theme into a table
 		for($i = 0; $i<count($rows); $i++) {
 			$form['row' . $i . 'c0'] = array(
 				'#value' => $rows[$i][0],
@@ -422,81 +452,86 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			);
 		}
 		
-		// Import options
-		$form['options'] = array(
-			'#type'=> 'fieldset',
-			'#title'=> t('Import Options'),
-			'#collapsible' => TRUE,
-			'#collapsed' => FALSE,
-		);
+		// only show import options if this is an import job
+		if($form_state['values']['import_type_choice'] == 'import') {
+		
+			// Import options
+			$form['options'] = array(
+				'#type'=> 'fieldset',
+				'#title'=> t('Import Options'),
+				'#collapsible' => TRUE,
+				'#collapsed' => FALSE,
+			);
 
-		$form['options']['civicrm_duplicate_options'] = array(
-			'#type' => 'radios',
-			'#title' => t('Check for duplicate contact'),
-			'#options' => array(
-				1 => t('Yes'),
-				0 => t('No'),
-			),
-		);
-		
-		$form['options']['civicrm_date_options'] = array(
-			'#type' => 'radios',
-			'#title' => t('Date Format'),
-			'#options' => array(
-				'yyyy-mm-dd' => t('yyyy-mm-dd (1998-12-25)'),
-				'mm-dd-yyyy' => t('mm-dd-yyyy (12-25-1998)'),
-				'mm/dd/yyyy' => t('mm/dd/yyyy (12/25/1998)'),
-			),
-		);
-		
-		// Gropus and Tags
-		$form['groups_n_tags'] = array(
-			'#type'=> 'fieldset',
-			'#title'=> t('Import contact group(s) and tag(s) options'),
-			'#collapsible' => TRUE,
-			'#collapsed' => FALSE,
-		);
-		
-		$civicrm_groups = _civicrm_import_fetch_tags_groups();
-		
-		$form['groups_n_tags']['existing_new'] = array(
-			'#type' => 'radios',
-			'#title' => 'Group(s) and Tag(s) options',
-			'#options' => array(
-				0 => 'Import into existing group(s) and tag(s)',
-				1 => 'Import into new group(s) and tag(s)',
-			),
-		);	
-		
-		$form['groups_n_tags']['groups_existing'] = array(
-			'#prefix' => '<div class="groups_n_tags_existing" style="display:none">',
-			'#type' => 'select',
-			'#title' => 'Add imported records to group(s)',
-			'#multiple' => TRUE,
-			'#size' => 5,
-			// handle default if no groups have been created
-			'#options' => $civicrm_groups,
-			'#suffix' => '</div>',
-		);
-		
-		 $civicrm_tags = _civicrm_import_fetch_tags_groups(FALSE);
-		
-		$form['groups_n_tags']['tags_existing'] = array(
-			'#prefix' => '<div class="groups_n_tags_existing" style="display:none">',
-			'#type' => 'checkboxes',
-			'#title' => 'Tag imported records',
-			'#options' => $civicrm_tags,
-			'#suffix' => '</div>',
-		);
-		
-		$form['groups_n_tags']['group_new'] = array(
-			'#prefix' => '<div class="groups_n_tags_new" style="display:none">',
-			'#type' => 'textfield',
-			'#title' => 'Group name (new)',
-			'#description' => t('Input the new group name here'),
-			'#suffix' => '</div>',
-		);
-	
+			$form['options']['civicrm_duplicate_options'] = array(
+				'#type' => 'radios',
+				'#title' => t('Check for duplicate contact'),
+				'#options' => array(
+					1 => t('Yes'),
+					0 => t('No'),
+				),
+				'#required' => TRUE,
+			);
+			
+			$form['options']['civicrm_date_options'] = array(
+				'#type' => 'radios',
+				'#title' => t('Date Format'),
+				'#options' => array(
+					'yyyy-mm-dd' => t('yyyy-mm-dd (1998-12-25)'),
+					'mm-dd-yyyy' => t('mm-dd-yyyy (12-25-1998)'),
+					'mm/dd/yyyy' => t('mm/dd/yyyy (12/25/1998)'),
+				),
+				'#required' => TRUE,
+			);
+			
+			// Gropus and Tags	
+			$form['groups_n_tags'] = array(
+				'#type'=> 'fieldset',
+				'#title'=> t('Import contact group(s) and tag(s) options'),
+				'#collapsible' => TRUE,
+				'#collapsed' => FALSE,
+			);
+			
+			$civicrm_groups = _civicrm_import_fetch_tags_groups();
+			
+			$form['groups_n_tags']['existing_new'] = array(
+				'#type' => 'radios',
+				'#title' => 'Group(s) and Tag(s) options',
+				'#options' => array(
+					0 => 'Import into existing group(s) and tag(s)',
+					1 => 'Import into new group(s) and tag(s)',
+				),
+			);	
+			
+			$form['groups_n_tags']['groups_existing'] = array(
+				'#prefix' => '<div class="groups_n_tags_existing" style="display:none">',
+				'#type' => 'select',
+				'#title' => 'Add imported records to group(s)',
+				'#multiple' => TRUE,
+				'#size' => 5,
+				// handle default if no groups have been created
+				'#options' => $civicrm_groups,
+				'#suffix' => '</div>',
+			);
+			
+			 $civicrm_tags = _civicrm_import_fetch_tags_groups(FALSE);
+			
+			$form['groups_n_tags']['tags_existing'] = array(
+				'#prefix' => '<div class="groups_n_tags_existing" style="display:none">',
+				'#type' => 'checkboxes',
+				'#title' => 'Tag imported records',
+				'#options' => $civicrm_tags,
+				'#suffix' => '</div>',
+			);
+			
+			$form['groups_n_tags']['group_new'] = array(
+				'#prefix' => '<div class="groups_n_tags_new" style="display:none">',
+				'#type' => 'textfield',
+				'#title' => 'Group name (new)',
+				'#description' => t('Input the new group name here'),
+				'#suffix' => '</div>',
+			);
+		}	
 	} 
 	// this step is to check errors and display it to the client
 	elseif($step == 2) {
@@ -606,28 +641,41 @@ function civicrm_import_import_form_validate($form, &$form_state) {
 			break;
 			
 			case 2:
-				if($form_state['values']['civicrm_duplicate_options'] == '') {
-					form_set_error('civicrm_duplicate_options', 'Please select duplicate check options');
-				}
-				if($form_state['values']['civicrm_date_options'] == '') {
-					form_set_error('civicrm_date_options', 'Please select a date format to work with');
-				}
-				// also check field matching
+				// check for field matching
 				$no_import_count = 0;
 				for($i = 0; $i < count($form_state['values']['num_rows']); $i++) {
 					if($form_state['values']['matching_' . $i] == 'do_not_import') {
 						$no_import_count++;
 					}
 				}
-	
 				if($no_import_count == count($form_state['values']['num_rows'])) {
 					form_set_error('matching_0', 'You must import at least 1 field');
 				}
-				if(!in_array('first_name', $form_state['values'], TRUE)) {
-					form_set_error('matching_0', 'You must import first name to establish an contact');
+				// if we are in import mode, we want to make sure these fields are required for import
+				if($form_state['values']['_import_type_choice'] == 'import') {
+					if(!in_array('first_name', $form_state['values'], TRUE)) {
+						form_set_error('matching_0', 'You must import first name to establish an contact');
+					}
+					if(!in_array('email', $form_state['values'], TRUE)) {
+						form_set_error('matching_0', 'You must import email to establish an contact');
+					}				
 				}
-				if(!in_array('email', $form_state['values'], TRUE)) {
-					form_set_error('matching_0', 'You must import email to establish an contact');
+				// if we are in append mode, we want to make sure internal_contact_id or external_identifier
+				// is matched.				
+				if($form_state['values']['_import_type_choice'] == 'append') {
+					$import_error = 0;
+					if(in_array('contact_id', $form_state['values'], TRUE)) {
+						$import_error += 1;
+					}
+					if(in_array('external_identifier', $form_state['values'], TRUE)) {
+						$import_error += 1;
+					}
+					if($import_error == 0) {
+						form_set_error('matching_0', 'You must map Internal or External Identifier field in order to append data');
+					}
+					if($import_error == 2) {
+						form_set_error('matching_0', 'You can only set either Internal Contact ID or External Identifier as the matching field for appending data');
+					}
 				}
 			break;
 	}
@@ -667,30 +715,30 @@ function civicrm_import_import_form_submit($form, &$form_state) {
 		// Chang is here, bug: form_state['values'] is not carried over after step 3
 		$form_state['values'] = $form_state['storage']['values'];
 		
-		
-		# adding to existing groups
-		if($form_state['values']['existing_new'] == 0) {
-			// set groups
-			$groups_add = (empty($form_state['values']['groups_existing'])) ? '' : serialize($form_state['values']['groups_existing']);
-			
-			// if no tags applied, make it blank, also get rid of 0 value tags
-			$empty_tags = 0;
-			foreach($form_state['values']['tags_existing'] as $key => $value) {
-				if($value == 0) {
-					unset($form_state['values']['tags_existing'][$key]);
+		if(isset($form_state['values']['existing_new'])) {
+			# adding to existing groups
+			if($form_state['values']['existing_new'] == 0) {
+				// set groups
+				$groups_add = (empty($form_state['values']['groups_existing'])) ? '' : serialize($form_state['values']['groups_existing']);
+				
+				// if no tags applied, make it blank, also get rid of 0 value tags
+				$empty_tags = 0;
+				foreach($form_state['values']['tags_existing'] as $key => $value) {
+					if($value == 0) {
+						unset($form_state['values']['tags_existing'][$key]);
+					}
 				}
+				$tags_add = (empty($form_state['values']['tags_existing'])) ? '' : serialize($form_state['values']['tags_existing']);
 			}
-			
-			$tags_add = (empty($form_state['values']['tags_existing'])) ? '' : serialize($form_state['values']['tags_existing']);
+			# adding to new group
+			elseif($form_state['values']['existing_new'] == 1) {
+				# set groups
+				# we are serializing a string instead of an array, this will be used to distinguish
+				# if we are creating new group or not for the import
+				$groups_add = ($form_state['values']['group_new'] == '') ? '' : serialize($form_state['values']['group_new']);
+			}		
 		}
-		# adding to new group
-		elseif($form_state['values']['existing_new'] == 1) {
-			# set groups
-			# we are serializing a string instead of an array, this will be used to distinguish
-			# if we are creating new group or not for the import
-			$groups_add = ($form_state['values']['group_new'] == '') ? '' : serialize($form_state['values']['group_new']);
-		}
-		
+				
 		// get mapping
 		$_mapping = array();
 		for($i = 0; $i<count($form_state['values']['num_rows']); $i++) {
@@ -698,7 +746,19 @@ function civicrm_import_import_form_submit($form, &$form_state) {
 		}
 		$mapping = serialize($_mapping);
 			
-		$query = db_query("INSERT INTO {civicrm_import_job} (fid, headings, dupe_check, date_format, import_groups, import_tags, mapping, uid, date_submitted) VALUES (%d, %d, %d, '%s', '%s', '%s', '%s', %d, '%s')", $form_state['values']['fid'], $form_state['values']['import_header'], $form_state['values']['civicrm_duplicate_options'], $form_state['values']['civicrm_date_options'], $groups_add, $tags_add, $mapping, $user->uid, date('Y-m-d h:i:s', time()));
+		$query = db_query("INSERT INTO {civicrm_import_job} (fid, type, headings, dupe_check, date_format, import_groups, import_tags, mapping, uid, date_submitted) 
+		VALUES (%d, '%s', %d, %d, '%s', '%s', '%s', '%s', %d, '%s')", 
+			$form_state['values']['fid'], 
+			$form_state['values']['_import_type_choice'],
+			$form_state['values']['import_header'], 
+			$form_state['values']['civicrm_duplicate_options'], 
+			$form_state['values']['civicrm_date_options'], 
+			$groups_add, 
+			$tags_add, 
+			$mapping, 
+			$user->uid, 
+			date('Y-m-d h:i:s', time())
+		);
 		
 		// last step clear the storage bin
 		unset($form_state['storage']);
@@ -777,6 +837,46 @@ function _civicrm_import_csv_header($fid) {
 	return $headings;
 }
 
+/*
+ ********************************************************************************
+ * Map the raw import file into an preview array (first two rows)
+ *
+ * @param
+ * int $fid					Drupal fid in file table
+ * bool $heading			If first row is heading
+ * bool $count				If the count of number of rows should be returned
+ *
+ * @return
+ * mixed $rows				
+ *							if $count is set to TRUE, number of rows parsed
+ *							else an array of columns => rows
+ *							example, the first two rows are
+ *
+ *							Scott, Snow, non@sagittis.edu
+ *							Reese, Jacobs, lorem.fringilla.ornare@Praesenteunulla.ca
+ * Array
+ * (
+ *   [0] => Array
+ *       (
+ *           [0] => Scott
+ *           [1] => Reese
+ *       )
+ *
+ *   [1] => Array
+ *       (
+ *           [0] => Snow
+ *           [1] => Jacobs
+ *       )
+ *
+ *   [2] => Array
+ *       (
+ *           [0] => non@sagittis.edu
+ *           [1] => lorem.fringilla.ornare@Praesenteunulla.ca
+ *       )
+ *
+ * )
+ *
+ */
 function _civicrm_import_mapping($fid, $heading = FALSE, $count = FALSE) {
 
 	// a helper function
@@ -793,15 +893,14 @@ function _civicrm_import_mapping($fid, $heading = FALSE, $count = FALSE) {
 	$piece1 = array_chunk($data[1], 1);
 	
 	for($i = 0; $i < count($piece); $i++) {
-		$cool[$i] = array_merge($piece[$i], $piece1[$i]);
+		$rows[$i] = array_merge($piece[$i], $piece1[$i]);
 	}
 	
 	if($count == TRUE) {
-		return count($cool);
+		return count($rows);
 	} else {
-		return $cool;
+		return $rows;
 	}		
-
 }
 
 /*
@@ -851,6 +950,7 @@ function _civicrm_import_mapping_match() {
 		'geo_code_1' => t('Geo Code 1'),
 		'geo_code_2' => t('Geo Code 2'),
 		'image_URL' => t('Image URL'),
+		'contact_id' => t('Internal Contact ID'),
 		'external_identifier' => t('External Identifier'),
 		'legal_identifier' => t('Legal Identifier'),
 		'contact_source' => t('Source of Contact Data'),

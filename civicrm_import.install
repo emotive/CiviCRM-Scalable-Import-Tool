@@ -40,6 +40,13 @@ function civicrm_import_schema() {
 				'size' => 'big',
 				'description' => t('File id of the import file'),
 			),
+			'type' => array(
+				'type' => 'varchar',
+				'not null' => TRUE,
+				'length' => 32,
+				'default' => 'import',
+				'description' => t('The import type'),
+			),
 			'headings' => array(
 				'type' => 'int',
 				'not null' => TRUE,

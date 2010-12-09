@@ -20,7 +20,6 @@ require_once('api/v2/Group.php');
 require_once('api/v2/EntityTag.php');
 
 // Utilities
-
 if(!class_exists('parseCSV')) {
 	require_once('lib/parsecsv.class.php');
 }
@@ -150,7 +149,7 @@ class civi_import_job extends civicrm_import_db {
 		$this->mapping_sort();
 		
 		$this->import_status_update('start');
-		$this->mail('started');
+		// $this->mail('started');
 		
 		
 		// splitting up the files
@@ -184,7 +183,7 @@ class civi_import_job extends civicrm_import_db {
 		// assuming if fatal errors occured before this step, this will never be called
 		$this->file_delete();
 		$this->import_status_update('finish');
-		$this->mail('finish');
+		// $this->mail('finish');
 		
 		exit();
 	}
@@ -201,25 +200,33 @@ class civi_import_job extends civicrm_import_db {
 	 *
 	 */		
 	private function process_import($input, $offset = 0) {
-	
 		// parse the CSV file
 		$this->_parse($input, $offset);
 		
-		// create contacts, custom fields
-		$this->contact_create();
+		// if we are doing an import job
+		if($this->data->type == 'import') {
+			// create contacts, custom fields
+			$this->contact_create();
+			
+			// location data (address, phone numbers)
+			if(!empty($this->location_data)) {
+				$this->location_create();
+			}
+			// import groups
+			if(!empty($this->data->import_groups)) {
+				$this->groups_add();
+			}
+			// import tags
+			if(!empty($this->data->import_tags)) {
+				$this->tags_add();
+			}
+		}
 		
-		// location data (address, phone numbers)
-		if(!empty($this->location_data)) {
-			$this->location_create();
+		// for an append job
+		if($this->data->type == 'append') {
+		
 		}
-		// import groups
-		if(!empty($this->data->import_groups)) {
-			$this->groups_add();
-		}
-		// import tags
-		if(!empty($this->data->import_tags)) {
-			$this->tags_add();
-		}
+		
 	}
 	
 	/*
@@ -414,9 +421,54 @@ class civi_import_job extends civicrm_import_db {
 					$this->options['cms_prefix'] . 'civicrm_import_job',
 					$count,
 					$this->data->jobid)
+			);	
+	}	
+	
+	private function contact_update() {
+		// bug fix for $this->contacts keep being appended
+		if(!empty($this->contacts)) {
+			unset($this->contacts);
+			$this->contacts = array();
+		}
+
+		for($i = 0; $i< count($this->csv->data); $i++) {
+			$param = array(
+				'contact_type' => 'Individual',
 			);
 			
-	}	
+			// construct the contact id
+			foreach($this->contact_data as $column => $field) {
+				switch($field) {
+					case 'birth_date':
+						$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
+					break;
+					
+					case 'external_identifier':
+						// get the contact id
+						$param['contact_id'] = $this->fetch_contact_id($this->csv->data[$i][$column]);
+					break;
+					
+					default:
+						$param[$field] = $this->csv->data[$i][$column];
+					break;
+				}				
+			}
+			
+			if(isset($param['contact_id']) && $param['contact_id'] != '') {
+				$contact = civicrm_contact_update($param);
+				// bug fix: memory leak from API call
+				CRM_Core_DAO::freeResult();
+			}
+		}
+		
+	}
+	
+	private function fetch_contact_id($external_identifier) {
+		return $this->db->get_var(
+			sprintf("SELECT id FROM civicrm_contact WHERE external_identifier = '%s'", $external_identifier)
+		);
+	}
+	
 	
 	/*******************************************************************
 	 * Parsing given (CSV) file or string input into 2D array
@@ -430,7 +482,7 @@ class civi_import_job extends civicrm_import_db {
 	 * #internal
 	 * (array) $this->contacts		|		key: created_contact id		value: column/field array
 	 */	
-	private function contact_create() {
+	private function contact_create($mode = 'create') {
 	
 		// bug fix for $this->contacts keep being appended
 		if(!empty($this->contacts)) {
@@ -462,7 +514,7 @@ class civi_import_job extends civicrm_import_db {
 			// if the $param does not fit our validation requirement
 			// i.e. First name, Last name, Email, we do not import them.
 			if($this->check_filter($param)) {
-				$contact =& civicrm_contact_create($param);
+				$contact = civicrm_contact_create($param);
 				// bug fix: memory leak from API call
 				CRM_Core_DAO::freeResult();
 				
@@ -553,7 +605,7 @@ class civi_import_job extends civicrm_import_db {
 				// set address of the outside call to the billing address
 				$location_param['address'] = array(1 => $address_billing);
 				
-				$location_result1 =& civicrm_location_add($location_param1);
+				$location_result1 = civicrm_location_add($location_param1);
 				if($location_result1['is_error'] == 1) {
 					$this->log->_log('Error (Location API Call) on ContactID: ' . $contact_id . ': ' . $location_result1['error_message'], 'error');
 				} else {
@@ -566,7 +618,7 @@ class civi_import_job extends civicrm_import_db {
 			// unset the params so they don't get built up as we go through the array
 			unset($phone_param, $address_home, $address_billing);
 			
-			$location_result2 = &civicrm_location_add($location_param);
+			$location_result2 = civicrm_location_add($location_param);
 			if($location_result2['is_error'] == 1) {
 				$this->log->_log('Error (Location API Call) on ContactID: ' . $contact_id . ': ' . $location_result2['error_message'], 'error');
 			} else {
