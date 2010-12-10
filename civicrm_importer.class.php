@@ -203,15 +203,17 @@ class civi_import_job extends civicrm_import_db {
 		// parse the CSV file
 		$this->_parse($input, $offset);
 		
+		// create contacts, custom fields
+		$this->contact_create($this->data->type);
+		
+		// location data (address, phone numbers)
+		if(!empty($this->location_data)) {
+			$this->location_create($this->data->type);
+		}
+			
 		// if we are doing an import job
 		if($this->data->type == 'import') {
-			// create contacts, custom fields
-			$this->contact_create();
 			
-			// location data (address, phone numbers)
-			if(!empty($this->location_data)) {
-				$this->location_create();
-			}
 			// import groups
 			if(!empty($this->data->import_groups)) {
 				$this->groups_add();
@@ -220,13 +222,7 @@ class civi_import_job extends civicrm_import_db {
 			if(!empty($this->data->import_tags)) {
 				$this->tags_add();
 			}
-		}
-		
-		// for an append job
-		if($this->data->type == 'append') {
-		
-		}
-		
+		}		
 	}
 	
 	/*
@@ -494,8 +490,11 @@ class civi_import_job extends civicrm_import_db {
 			
 			$param = array(
 				'contact_type' => 'Individual',
-				'dupe_check' => ($this->data->dupe_check == 1) ? TRUE : FALSE,
 			);
+			if($mode == 'create') {
+				$param['dupe_check'] = ($this->data->dupe_check == 1) ? TRUE : FALSE;
+			}
+			
 			
 			foreach($this->contact_data as $column => $field) {
 				
@@ -503,6 +502,12 @@ class civi_import_job extends civicrm_import_db {
 					case 'birth_date':
 						$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
 					break;
+					
+					// in appending job you have to get contact_id if they choose to match to external identifier
+					case 'external_identifier':
+						// get the contact id
+						$param['contact_id'] = $this->fetch_contact_id($this->csv->data[$i][$column]);
+					break;					
 					
 					default:
 						$param[$field] = $this->csv->data[$i][$column];
@@ -513,9 +518,22 @@ class civi_import_job extends civicrm_import_db {
 			// data filtering validation: 
 			// if the $param does not fit our validation requirement
 			// i.e. First name, Last name, Email, we do not import them.
+			// #FEATURE: $this->check_filter should return an array of bad fields so we can pin them down in 
+			// the log
 			if($this->check_filter($param)) {
-				$contact = civicrm_contact_create($param);
-				// bug fix: memory leak from API call
+			
+				if($mode == 'create') {
+					$contact = civicrm_contact_create($param);
+				} else {
+					if(isset($param['contact_id'] && $param['contact_id'] == '')) {
+						$contact = civicrm_contact_update($param);
+					} else {
+						// log all the ones that did not find a matching record into the error_csv
+						$this->log->_log("No matching contact found with the id provided on line $i," . implode(',', $this->csv->data[$i]), 'error');
+					}
+				}
+			
+				// #FIX: memory leak from API call
 				CRM_Core_DAO::freeResult();
 				
 				if($contact['is_error'] == 1) {
@@ -548,7 +566,7 @@ class civi_import_job extends civicrm_import_db {
 	 * In our case, we only care about
 	 * Addresses (Home, Billing) | Phone (Home, Work, Other)
 	 */
-	private function location_create() {
+	private function location_create($mode = 'create') {
 		
 		$x = 0;
 		foreach($this->contacts as $contact_id => $column_field_array) {
@@ -605,7 +623,11 @@ class civi_import_job extends civicrm_import_db {
 				// set address of the outside call to the billing address
 				$location_param['address'] = array(1 => $address_billing);
 				
-				$location_result1 = civicrm_location_add($location_param1);
+				if($mode == 'create') {
+					$location_result1 = civicrm_location_add($location_param1);
+				} else {
+					$location_result1 = civicrm_location_update($location_param1);
+				}
 				if($location_result1['is_error'] == 1) {
 					$this->log->_log('Error (Location API Call) on ContactID: ' . $contact_id . ': ' . $location_result1['error_message'], 'error');
 				} else {
@@ -618,7 +640,12 @@ class civi_import_job extends civicrm_import_db {
 			// unset the params so they don't get built up as we go through the array
 			unset($phone_param, $address_home, $address_billing);
 			
-			$location_result2 = civicrm_location_add($location_param);
+			if($mode == 'create') {
+				$location_result2 = civicrm_location_add($location_param);
+			} else {
+				$location_result2 = civicrm_location_update($location_param);
+			}
+			
 			if($location_result2['is_error'] == 1) {
 				$this->log->_log('Error (Location API Call) on ContactID: ' . $contact_id . ': ' . $location_result2['error_message'], 'error');
 			} else {
