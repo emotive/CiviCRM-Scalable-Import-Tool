@@ -224,6 +224,7 @@ function theme_civicrm_import_stub() {
 	$table_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/table_128.png');
 	$import_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/import_128.png');
 	$config_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/config_128.png');
+	$job_image =  theme('image', drupal_get_path('module', 'civicrm_import') . '/images/job_64.png');
 	
 	$output = '<div class="civicrm_import_stub">
   <h2>' . l('Start a new import', 'admin/civi_import/import') . '</h2>
@@ -239,6 +240,11 @@ function theme_civicrm_import_stub() {
   <h2>' . l('Custom Field Value Table', 'admin/civi_import/help') . '</h2>
   ' . $table_image . '
   <p>Gives the valid import value for different custom fields</p>
+</div>
+<div class="civicrm_import_stub">
+  <h2>' . l('View Import Jobs', 'admin/civi_import/job') . '</h2>
+  ' . $job_image . '
+  <p>View pending and past import jobs</p>
 </div>';
 
 	return $output;

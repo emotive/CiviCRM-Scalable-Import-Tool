@@ -202,10 +202,10 @@ class civi_import_job extends civicrm_import_db {
 	private function process_import($input, $offset = 0) {
 		// parse the CSV file
 		$this->_parse($input, $offset);
-		
+				
 		// create contacts, custom fields
 		$this->contact_create($this->data->type);
-		
+	
 		// location data (address, phone numbers)
 		if(!empty($this->location_data)) {
 			$this->location_create($this->data->type);
@@ -250,8 +250,7 @@ class civi_import_job extends civicrm_import_db {
 			
 			// no job with cron = 0, status = 0 fetched, exit
 			if(!$results) {
-				echo 'no active import job';
-				exit();
+				exit('no active import job');
 			} else {
 				// return the import job object
 				$this->data = $results[0];
@@ -419,46 +418,7 @@ class civi_import_job extends civicrm_import_db {
 					$this->data->jobid)
 			);	
 	}	
-	
-	private function contact_update() {
-		// bug fix for $this->contacts keep being appended
-		if(!empty($this->contacts)) {
-			unset($this->contacts);
-			$this->contacts = array();
-		}
-
-		for($i = 0; $i< count($this->csv->data); $i++) {
-			$param = array(
-				'contact_type' => 'Individual',
-			);
-			
-			// construct the contact id
-			foreach($this->contact_data as $column => $field) {
-				switch($field) {
-					case 'birth_date':
-						$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
-					break;
-					
-					case 'external_identifier':
-						// get the contact id
-						$param['contact_id'] = $this->fetch_contact_id($this->csv->data[$i][$column]);
-					break;
-					
-					default:
-						$param[$field] = $this->csv->data[$i][$column];
-					break;
-				}				
-			}
-			
-			if(isset($param['contact_id']) && $param['contact_id'] != '') {
-				$contact = civicrm_contact_update($param);
-				// bug fix: memory leak from API call
-				CRM_Core_DAO::freeResult();
-			}
-		}
 		
-	}
-	
 	private function fetch_contact_id($external_identifier) {
 		return $this->db->get_var(
 			sprintf("SELECT id FROM civicrm_contact WHERE external_identifier = '%s'", $external_identifier)
@@ -478,8 +438,8 @@ class civi_import_job extends civicrm_import_db {
 	 * #internal
 	 * (array) $this->contacts		|		key: created_contact id		value: column/field array
 	 */	
-	private function contact_create($mode = 'create') {
-	
+	private function contact_create($mode = 'import') {
+		
 		// bug fix for $this->contacts keep being appended
 		if(!empty($this->contacts)) {
 			unset($this->contacts);
@@ -487,75 +447,94 @@ class civi_import_job extends civicrm_import_db {
 		}
 		
 		for($i = 0; $i< count($this->csv->data); $i++) {
-			
+				
 			$param = array(
 				'contact_type' => 'Individual',
 			);
-			if($mode == 'create') {
+			if($mode == 'import') {
 				$param['dupe_check'] = ($this->data->dupe_check == 1) ? TRUE : FALSE;
 			}
 			
-			
-			foreach($this->contact_data as $column => $field) {
-				
-				switch($field) {
-					case 'birth_date':
-						$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
-					break;
-					
-					// in appending job you have to get contact_id if they choose to match to external identifier
-					case 'external_identifier':
-						// get the contact id
-						$param['contact_id'] = $this->fetch_contact_id($this->csv->data[$i][$column]);
-					break;					
-					
-					default:
-						$param[$field] = $this->csv->data[$i][$column];
-					break;
-				}
-			}
-			
-			// data filtering validation: 
-			// if the $param does not fit our validation requirement
-			// i.e. First name, Last name, Email, we do not import them.
-			// #FEATURE: $this->check_filter should return an array of bad fields so we can pin them down in 
-			// the log
-			if($this->check_filter($param)) {
-			
-				if($mode == 'create') {
-					$contact = civicrm_contact_create($param);
+			// in case we are doing an append with *ONLY* Location data we still need to fill $this->contact
+			if(count($this->contact_data) == 1) {
+				$id = array_values($this->contact_data);
+				$column = array_keys($this->contact_data);
+				if($id[0] == 'external_identifier') {
+					$contact_id = $this->fetch_contact_id($this->csv->data[$i][$column[0]]);
 				} else {
-					if(isset($param['contact_id'] && $param['contact_id'] == '')) {
-						$contact = civicrm_contact_update($param);
-					} else {
-						// log all the ones that did not find a matching record into the error_csv
-						$this->log->_log("No matching contact found with the id provided on line $i," . implode(',', $this->csv->data[$i]), 'error');
-					}
+					$contact_id = $this->csv->data[$i][$column[0]];
 				}
-			
-				// #FIX: memory leak from API call
-				CRM_Core_DAO::freeResult();
-				
-				if($contact['is_error'] == 1) {
-					$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
+				if(isset($contact_id) && $contact_id != '') {
+					$this->contacts[$contact_id] = $this->csv->data[$i];
 				} else {
-					$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
-					$this->contact_imported++;
-					
-					// record the contact import count for tracking
-					if($this->contact_imported % 100 == 0) {
-						$this->update_count('contact');
-					}
-				}
+					// unmatched append row
+					$this->log->_log('Record not found in database:,' . implode(',', $this->csv->data[$i]), 'error_csv');
+				}			
 			} else {
-				// log this row as bad row
-				$this->log->_log("Bad name or email on CSV line $i," . implode(',', $this->csv->data[$i]), 'error');
+				foreach($this->contact_data as $column => $field) {
+					
+					switch($field) {
+						case 'birth_date':
+							$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
+						break;
+						
+						// in appending job you have to get contact_id if they choose to match to external identifier
+						case 'external_identifier':
+							// get the contact id
+							if($mode == 'import') {
+								$param[$field] = $this->csv->data[$i][$column];
+							} else {
+								$param['contact_id'] = $this->fetch_contact_id($this->csv->data[$i][$column]);
+							}
+						break;					
+						
+						default:
+							$param[$field] = $this->csv->data[$i][$column];
+						break;
+					}
+				}
+				
+				// data filtering validation: 
+				// if the $param does not fit our validation requirement
+				// i.e. First name, Last name, Email, we do not import them.
+				// #FEATURE: $this->check_filter should return an array of bad fields so we can pin them down in 
+				// the log
+				if($this->check_filter($param)) {
+				
+					if($mode == 'import') {
+						$contact = civicrm_contact_create($param);
+					} else {
+						if(isset($param['contact_id']) && $param['contact_id'] != '') {
+							$contact = civicrm_contact_update($param);
+						} else {
+							// log all the ones that did not find a matching record into the error_csv
+							$this->log->_log("No matching contact found with the id provided on line $i," . implode(',', $this->csv->data[$i]), 'error');
+						}
+					}
+				
+					// #FIXED: memory leak from API call
+					CRM_Core_DAO::freeResult();
+					
+					if($contact['is_error'] == 1) {
+						$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
+					} else {
+						$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
+						$this->contact_imported++;
+						
+						// record the contact import count for tracking
+						if($this->contact_imported % 100 == 0) {
+							$this->update_count('contact');
+						}
+					}
+				} else {
+					// log this row as bad row
+					$this->log->_log("Bad name or email on CSV line $i," . implode(',', $this->csv->data[$i]), 'error');
+				}
+				$this->update_count('contact');
+				$this->log->_log($y . ' number of contact records created from ' . count($this->csv->data) . ' number of rows parsed from CSV file');
 			}
 		}
-		
-		$this->update_count('contact');
-		$this->log->_log($y . ' number of contact records created from ' . count($this->csv->data) . ' number of rows parsed from CSV file');
-		
+	
 		// free the original parsed csv from memory
 		unset($this->csv->data);
 	}
@@ -566,7 +545,7 @@ class civi_import_job extends civicrm_import_db {
 	 * In our case, we only care about
 	 * Addresses (Home, Billing) | Phone (Home, Work, Other)
 	 */
-	private function location_create($mode = 'create') {
+	private function location_create($mode = 'import') {
 		
 		$x = 0;
 		foreach($this->contacts as $contact_id => $column_field_array) {
@@ -623,7 +602,7 @@ class civi_import_job extends civicrm_import_db {
 				// set address of the outside call to the billing address
 				$location_param['address'] = array(1 => $address_billing);
 				
-				if($mode == 'create') {
+				if($mode == 'import') {
 					$location_result1 = civicrm_location_add($location_param1);
 				} else {
 					$location_result1 = civicrm_location_update($location_param1);
@@ -640,7 +619,7 @@ class civi_import_job extends civicrm_import_db {
 			// unset the params so they don't get built up as we go through the array
 			unset($phone_param, $address_home, $address_billing);
 			
-			if($mode == 'create') {
+			if($mode == 'import') {
 				$location_result2 = civicrm_location_add($location_param);
 			} else {
 				$location_result2 = civicrm_location_update($location_param);
