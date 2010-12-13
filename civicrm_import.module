@@ -62,6 +62,8 @@ function civicrm_import_menu() {
  */
 function civicrm_import_job_form() {
 	
+	global $base_url;
+	
 	$_query = civicrm_import_job_sort();
 	
 	$query = pager_query($_query['query'], 25, 0, null);
@@ -74,6 +76,16 @@ function civicrm_import_job_form() {
 		} else {
 			$cron = 'Error';
 		}
+		
+		// getting the log file paths
+		$logs = unserialize($results->log);
+		if(!empty($logs)) {
+			foreach($logs as $name => $path) {
+				$url = $base_url . '/' . substr($path, strpos($path, 'sites'));
+				$_logs .= l($name, $url, array('attributes'=> array('target' => '_blank'),)) . '<br />'; 
+			}
+		}
+		
 		$rows[] = array(
 			$form['toggle'][$results->jobid] = array('#type' => 'checkbox'),
 			$form['jobid'][$results->jobid] = array('#value' => $results->jobid),
@@ -83,6 +95,7 @@ function civicrm_import_job_form() {
 			$form['import_count'][$results->jobid] = array('#value' => $results->import_count . '/' . $results->contact_count),
 			$form['date_started'][$results->jobid] = array('#value' => ($results->date_started == '0000-00-00 00:00:00') ? 'Not Started' : $results->date_started),
 			$form['date_complete'][$results->jobid] = array('#value' => ($results->date_complete == '0000-00-00 00:00:00') ? 'Not Completed' : $results->date_complete),
+			$form['log'][$results->jobid] = array('#value' => $_logs),
 			$form['action'][$results->jobid] = array('#value' => l('Delete', 'admin/civi_import/job/delete/' . $results->jobid)),
 		);
 	}
@@ -114,12 +127,14 @@ function theme_civicrm_import_job_form($form) {
 			drupal_render($form['import_count'][$results->jobid]),
 			drupal_render($form['date_started'][$results->jobid]),
 			drupal_render($form['date_complete'][$results->jobid]),
+			drupal_render($form['log'][$results->jobid]),
 			drupal_render($form['action'][$results->jobid]),
 		);
 	}
 	
 	$output .= theme('table', $header, $rows, array('style' => 'width:100%'));
 	
+	$output .= '&laquo; ' . l('Back', 'admin/civi_import');
 	
 	$output .= theme('pager');
 	
@@ -136,6 +151,7 @@ function civicrm_import_job_sort() {
 		'Contacts Detected' => 'import_count',
 		'Start Date' => 'date_started',
 		'Complete Date' => 'date_complete',
+		'Log Files' => 'log',
 	);
 	
 	// return the paged query

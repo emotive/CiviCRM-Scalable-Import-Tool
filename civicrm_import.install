@@ -139,6 +139,12 @@ function civicrm_import_schema() {
 				'description' => t('Number of contacts location (address, phone number, etc imported'),
 				'default' => 0,
 			),
+			'log' => array(
+				'type' => 'text',
+				'size' => 'medium',
+				'description' => t('Contains serialized array of log path for an import job'),
+				'default' => null,
+			),
 		),
 		'primary key' => array('jobid'),
 	);

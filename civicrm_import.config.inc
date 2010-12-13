@@ -6,53 +6,19 @@
  * as drupal variables
  */
 function civicrm_import_config_settings() {
-
-	global $db_url;
-	$db = parse_url($db_url);
-	$db['path'] = trim($db['path'], '\/\\');
-
- $form['civicrm_import_db'] = array(
-	'#type' => 'fieldset',
-	'#title' => t('Database Configuration Settings'),
-	'#description' => t('Configuration Settings for the drupal/civicrm database'),
-	'#collapsible' => TRUE,
-	'collapsed' => FALSE,
-  );
   
-  $form['civicrm_import_db']['civicrm_import_db_host'] = array(
-	'#type' => 'textfield',
-	'#title' => t('CMS/CRM Database Host'),
-	'#description' => t('Must be resolvable address, can be ip or domain names, or simply localhost '),
-	'#default_value' => variable_get('civicrm_import_db_host', $db['host']),
-	'#size' => 20,
-	'#required' => TRUE,
-  );
+  $logging_path = rtrim($_SERVER['DOCUMENT_ROOT'], '\/\\').base_path().'sites/default/files/civicrm_import';
+  $path_check = is_writable($logging_path);
   
-  $form['civicrm_import_db']['civicrm_import_db_name'] = array(
-	'#type' => 'textfield',
-	'#title' => t('CMS/CRM Database Name'),
-	'#description' => t('Database name or schema name'),
-	'#default_value' => variable_get('civicrm_import_db_name', $db['path']),
-	'#size' => 20,
-	'#required' => TRUE,
-  );
-  
-  $form['civicrm_import_db']['civicrm_import_db_username'] = array(
-	'#type' => 'textfield',
-	'#title' => t('CMS/CRM Database Username'),
-	'#description' => t('username that has access to the walklist database'),
-	'#default_value' => variable_get('civicrm_import_db_username', $db['user']),
-	'#size' => 20,
-	'#required' => TRUE,
-  );
-  
-  $form['civicrm_import_db']['civicrm_import_db_password'] = array(
-	'#type' => 'password',
-	'#title' => t('CMS/CRM Database Password'),
-	'#description' => t('password for the given database user'),
-	'#default_value' => variable_get('civicrm_import_db_password', $db['path']),
-	'#size' => 20,
-  );
+  if(!$path_check) {
+	$form['warning'] = array(
+		'#type' => 'markup',
+		'#prefix' => '<div class="messages warning">',
+		'#suffix' => '</div>',
+		'#value' => 'Warning: sites/default/files/civicrm_import either does not exist or do not have write permission, as the result logging will be disabled',
+	);
+	variable_set('civicrm_import_logging_toggle', 0);
+  }
   
  $form['civicrm_import_import_logging'] = array(
 	'#type' => 'fieldset',
@@ -70,8 +36,9 @@ function civicrm_import_config_settings() {
 		0 => t('Logging off'),
 		1 => t('Logging on'),
 	),
-	'#default_value' => variable_get('civicrm_import_logging_toggle', 1),
+	'#default_value' => (!$path_check) ? 0 : variable_get('civicrm_import_logging_toggle', 1),
 	'#required' => TRUE,
+	'#disabled' => (!$path_check) ? TRUE : FALSE,
   );
   
   $form['civicrm_import_import_logging']['civicrm_import_logging_path'] = array(
@@ -91,13 +58,15 @@ function civicrm_import_config_settings() {
 	'collapsed' => FALSE,
   );
   
-  $form['civicrm_import_import_email']['civicrm_import_email_from'] = array(
-	'#type' => 'textfield',
-	'#title' => t('Email from'),
-	'#description' => t('The From address in which import job status will be sent from, usually something like info@yourdomainname.com'),
-	'#default_value' => variable_get('civicrm_import_email_from', 'email@yourdomainname.com'),
-	'#size' => 20,
-	'#required' => TRUE,
+  $form['civicrm_import_import_email']['civicrm_import_import_email_logging'] = array(
+	'#type' => 'select',
+	'#title' => t('Email logging'),
+	'#options' => array(
+		0 => t('Logging off'),
+		1 => t('Logging on'),
+	),
+	'#description' => t('If email logging is on, your successful import job result will be emailed to you'),
+	'#default_value' => variable_get('civicrm_import_import_email_logging', 1),
   );
   
   $form['civicrm_import_import_email']['civicrm_import_email_to'] = array(
@@ -109,11 +78,52 @@ function civicrm_import_config_settings() {
 	'#required' => TRUE,
   );
   
-  $form['civicrm_import_import_email']['civicrm_import_email_to_greeting'] = array(
+  $form['civicrm_import_import_email']['civicrm_import_email_cc'] = array(
 	'#type' => 'textfield',
-	'#title' => t('Email greeting:'),
-	'#description' => t('The email greeting: i.e. John Doe'),
-	'#default_value' => variable_get('civicrm_import_email_to_greeting', 'John Doe'),
+	'#title' => t('Email CC'),
+	'#description' => t('Email address where the status of the import will be cc\'ed to'),
+	'#default_value' => variable_get('civicrm_import_email_cc', 'email@yourdomainname.com'),
+	'#size' => 20,
+	'#required' => TRUE,
+  );
+  
+  $form['civicrm_import_import_email']['civicrm_import_email_host'] = array(
+	'#type' => 'textfield',
+	'#title' => t('SMTP Host'),
+	'#description' => t('SMTP host of your email provider'),
+	'#default_value' => variable_get('civicrm_import_email_host', 'smtp.example.com'),
+	'#size' => 20,
+  );
+  
+  $form['civicrm_import_import_email']['civicrm_import_email_ssl'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Enable SSL?'),
+	'#description' => t('Is SSL required?'),
+	'#default_value' => variable_get('civicrm_import_email_ssl', 1),
+	'#size' => 20,
+  );
+  
+  $form['civicrm_import_import_email']['civicrm_import_email_port'] = array(
+	'#type' => 'textfield',
+	'#title' => t('SMTP Port'),
+	'#description' => t('SMTP port for your email pvorider, usually 25 for Non-ssl, 465 for ssl enabled'),
+	'#default_value' => variable_get('civicrm_import_email_port', 465),
+	'#size' => 20,
+  );
+  
+  $form['civicrm_import_import_email']['civicrm_import_email_user'] = array(
+	'#type' => 'textfield',
+	'#title' => t('SMTP User'),
+	'#description' => t('SMTP username for your email pvorider, usually the whole email address'),
+	'#default_value' => variable_get('civicrm_import_email_user', 'user@example.com'),
+	'#size' => 20,
+  );
+  
+  $form['civicrm_import_import_email']['civicrm_import_email_pass'] = array(
+	'#type' => 'password',
+	'#title' => t('SMTP User password'),
+	'#description' => t('SMTP password for the user'),
+	'#default_value' => variable_get('civicrm_import_email_pass', '123456'),
 	'#size' => 20,
   );
 

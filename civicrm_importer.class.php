@@ -50,8 +50,15 @@ class civi_import_job extends civicrm_import_db {
 	 *			'line_split' => 5000,
 	 *			'email' => array(
 	 *				'to' => 'email@yourdomain.com',
+	 *				'cc' => 'email1@yourdomain.com',
 	 *				'from' => 'info@yourdomain.com',
 	 *				'to_greeting' => 'John Doe',
+	 *				'host' => 'smtp.gmail.com',
+	 *				'ssl' => 1,
+	 *				'port' => 465,
+	 *				'user' => 'johndoe@example.com',
+	 *				'pass' => '12345',
+	 8				'toggle' => 1,
 	 *			),
 	 *			'db' => array(
 	 *				'host' => 'db host',
@@ -118,10 +125,27 @@ class civi_import_job extends civicrm_import_db {
 		
 		// start the mailer
 		$this->mailer = new PHPMailer();
-		$this->mailer->SetFrom($this->options['email']['from'], 'CiviCRM Import Scheduler');
+		$this->mailer->SetFrom($this->options['email']['from'], 'Import Scheduler');
 		$this->mailer->AddAddress($this->options['email']['to'], $this->options['email']['to_greeting']);
+		$this->mailer->AddAddress($this->options['email']['cc']);
 		$this->mailer->AltBody    = "To view the message, please use an HTML compatible email viewer!";
 		
+		if(isset($this->options['email']['host'])) {
+			$this->mailer->IsSMTP(); 
+			$this->mailer->Host = $this->options['email']['host'];
+		}
+		
+		if(isset($this->options['email']['user'])) {
+			$this->mailer->SMTPAuth = TRUE;
+			$this->mailer->Username = $this->options['email']['user'];
+			$this->mailer->Password = $this->options['email']['pass'];
+		}
+		if(isset($this->options['email']['ssl'])) {
+			$this->mailer->SMTPSecure = 'ssl';
+		}
+		if(isset($this->options['email']['port'])) {
+			$this->mailer->Port = $this->options['email']['port'];
+		}		
 	}
 	
 	/*
@@ -149,7 +173,7 @@ class civi_import_job extends civicrm_import_db {
 		$this->mapping_sort();
 		
 		$this->import_status_update('start');
-		// $this->mail('started');
+		$this->mail('started');
 		
 		
 		// splitting up the files
@@ -183,7 +207,7 @@ class civi_import_job extends civicrm_import_db {
 		// assuming if fatal errors occured before this step, this will never be called
 		$this->file_delete();
 		$this->import_status_update('finish');
-		// $this->mail('finish');
+		$this->mail('finish');
 		
 		exit();
 	}
@@ -271,7 +295,8 @@ class civi_import_job extends civicrm_import_db {
 		
 		switch($status) {
 			case 'finish':
-				$sub_query = sprintf("SET cron = 1, status = 1, date_complete = '%s'", date('Y-m-d H:i:s'));
+				$logs = $this->log_files();
+				$sub_query = sprintf("SET cron = 1, status = 1, date_complete = '%s', log = '%s'", date('Y-m-d H:i:s'), serialize($logs));
 			break;
 			
 			case 'error':
@@ -445,7 +470,7 @@ class civi_import_job extends civicrm_import_db {
 			unset($this->contacts);
 			$this->contacts = array();
 		}
-		
+
 		for($i = 0; $i< count($this->csv->data); $i++) {
 				
 			$param = array(
@@ -472,12 +497,10 @@ class civi_import_job extends civicrm_import_db {
 				}			
 			} else {
 				foreach($this->contact_data as $column => $field) {
-					
 					switch($field) {
 						case 'birth_date':
 							$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
 						break;
-						
 						// in appending job you have to get contact_id if they choose to match to external identifier
 						case 'external_identifier':
 							// get the contact id
@@ -487,7 +510,6 @@ class civi_import_job extends civicrm_import_db {
 								$param['contact_id'] = $this->fetch_contact_id($this->csv->data[$i][$column]);
 							}
 						break;					
-						
 						default:
 							$param[$field] = $this->csv->data[$i][$column];
 						break;
@@ -531,9 +553,10 @@ class civi_import_job extends civicrm_import_db {
 					$this->log->_log("Bad name or email on CSV line $i," . implode(',', $this->csv->data[$i]), 'error');
 				}
 				$this->update_count('contact');
-				$this->log->_log($y . ' number of contact records created from ' . count($this->csv->data) . ' number of rows parsed from CSV file');
 			}
 		}
+		
+		$this->log->_log($this->contact_imported . ' number of contact records created from ' . count($this->csv->data) . ' number of rows parsed from CSV file');
 	
 		// free the original parsed csv from memory
 		unset($this->csv->data);
@@ -801,6 +824,31 @@ class civi_import_job extends civicrm_import_db {
 			}
 		}
 	}
+
+	/*
+	 ***********************************************************************************
+	 * Return the import job log file locations
+	 *  
+	 * @param:
+	 * null
+	 *
+	 * @return
+	 * (array) $data						key:	log, error, csv
+	 *										value:	file path of the log.
+	 */	
+	private function log_files() {
+		$log['log'] = $this->log->__get('log_path') . '/log/' . $this->log->__get('log_file');
+		$log['error'] = $this->log->__get('log_path') . '/error/' . $this->log->__get('log_file');
+		$log['csv'] = $this->log->__get('log_path') . '/error_csv/' . $this->log->__get('log_file');
+		
+		foreach($log as $type => $path) {
+			if(is_readable($path)) {
+				$data[$type] = $path;
+			}
+		}
+		
+		return $data;
+	}
 	
 	/*
 	 ***********************************************************************************
@@ -817,12 +865,12 @@ class civi_import_job extends civicrm_import_db {
 	private function mail($type = 'started') {
 		
 		$cur_date = date('Y-m-d H:i:s');
-		$log_filepath = $this->log->__get('log_path') . '/log/' . $this->log->__get('log_file');
-		$err_filepath = $this->log->__get('log_path') . '/error/' . $this->log->__get('log_file');
+		
+		$logs = $this->log_files();
 		
 		// get log file
-		if(file_exists($log_filepath)) {
-			$log = file_get_contents($log_filepath);
+		if(file_exists($logs['log'])) {
+			$log = file_get_contents($logs['log']);
 			$log = nl2br($log);
 		}		
 		
@@ -830,19 +878,19 @@ class civi_import_job extends civicrm_import_db {
 			
 			case 'finish':
 				$subject = 'Your import job number: ' . $this->data->jobid . ' has been completed';
-				$body = "<p>Dear  " . $this->options['email']['to_greeting'] . "
+				$body = "<p>Dear  " . $this->options['email']['to_greeting'] . "</p>
 				
-				Your import job has been completed on $cur_date. Below are the details:</p>
+				<p>Your import job has been completed on $cur_date. Below are the details:</p>
 				
 				$log
-				
+				<p>&nbsp;</p>
 				<p>Please let us know if you have any questions,</p>
 				<br />
 				<br />
 				Sincerely, <br />
 				";
 				
-				$this->mailer->AddAttachment($err_filepath);
+				$this->mailer->AddAttachment($logs['error']);
 					
 			break;
 			
@@ -874,8 +922,10 @@ class civi_import_job extends civicrm_import_db {
 		$this->mailer->Subject = $subject;
 		$this->mailer->MsgHTML($body);
 
-		if(!$this->mailer->Send()) {
-		  $this->log->_log("Mailer Error for $type email: " . $mail->ErrorInfo, 'error');
+		if($this->options['email']['toggle'] == 1) {
+			if(!$this->mailer->Send()) {
+			  $this->log->_log("Mailer Error for $type email: " . $mail->ErrorInfo, 'error');
+			}
 		}
 	}
 	
