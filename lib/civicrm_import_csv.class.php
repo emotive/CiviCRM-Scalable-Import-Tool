@@ -1,6 +1,6 @@
 <?php
 
-class parseCSV {
+class civicrm_import_csv {
 	
 /*
 
@@ -173,7 +173,7 @@ class parseCSV {
 	 * @param   input   CSV file or string
 	 * @return  nothing
 	 */
-	function parseCSV ($input = null, $offset = null, $limit = null, $conditions = null) {
+	function civicrm_import_csv ($input = null, $offset = null, $limit = null, $conditions = null) {
 		if ( $offset !== null ) $this->offset = $offset;
 		if ( $limit !== null ) $this->limit = $limit;
 		if ( count($conditions) > 0 ) $this->conditions = $conditions;

@@ -849,7 +849,7 @@ function _civicrm_import_ahah() {
 
 function _civicrm_import_csv_header($fid) {
 	$file = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $fid));
-	$parser = new parseCSV();
+	$parser = new civicrm_import_csv();
 	$parser->limit = 1;
 	$parser->heading = FALSE;
 	$parser->parse($file);
@@ -904,7 +904,7 @@ function _civicrm_import_mapping($fid, $heading = FALSE, $count = FALSE) {
 	// a helper function
 	$file = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $fid));
 
-	$parser = new parseCSV();
+	$parser = new civicrm_import_csv();
 	$parser->limit = 2;
 	$parser->heading = $heading;
 	$parser->auto($file);

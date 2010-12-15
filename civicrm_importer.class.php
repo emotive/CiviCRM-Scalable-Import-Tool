@@ -20,9 +20,9 @@ require_once('api/v2/Group.php');
 require_once('api/v2/EntityTag.php');
 
 // Utilities
-if(!class_exists('parseCSV')) {
-	require_once('lib/parsecsv.class.php');
-}
+// if(!class_exists('parseCSV')) {
+	require_once('lib/civicrm_import_csv.class.php');
+// }
 
 require_once('lib/ez_sql_core.php');
 require_once('lib/ez_sql_mysql.php');
@@ -116,7 +116,7 @@ class civi_import_job extends civicrm_import_db {
 		parent::__construct($this->options['db']['host'], $this->options['db']['name'], $this->options['db']['user'], $this->options['db']['pass']);
 		
 		// start the parser
-		$this->csv = new parseCSV();
+		$this->csv = new civicrm_import_csv();
 		$this->csv->encoding('UTF-8');
 		$this->csv->heading = FALSE;
 		

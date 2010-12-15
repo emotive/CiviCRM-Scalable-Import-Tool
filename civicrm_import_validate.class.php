@@ -1,6 +1,6 @@
 <?php
 
-require_once('lib/parsecsv.class.php');
+require_once('lib/civicrm_import_csv.class.php');
 require_once('civicrm_import_util.class.php');
 require_once('civicrm_import_db.class.php');
 
@@ -14,7 +14,7 @@ class civicrm_import_validate extends civicrm_import_db {
 	public $log;
 	
 	public function __construct($db = array(), $logging = array()) {
-		$this->csv = new parseCSV();
+		$this->csv = new civicrm_import_csv();
 		$this->csv->heading = FALSE;
 		
 		// the logger file name should be consistent with logger in

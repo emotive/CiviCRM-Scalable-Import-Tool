@@ -1,6 +1,6 @@
 <?php
 
-require_once('lib/parsecsv.class.php');
+require_once('lib/civicrm_import_csv.class.php');
 require_once('civicrm_import_validate.class.php');
 
 if(!class_exists('drupal_module_form')) {
