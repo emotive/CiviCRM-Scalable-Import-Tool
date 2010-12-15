@@ -146,8 +146,8 @@ function civicrm_import_config_settings() {
   $form['civicrm_import_import_misc']['civicrm_import_import_misc_filesplit'] = array(
 	'#type' => 'textfield',
 	'#title' => t('Import file split lines count'),
-	'#description' => t('Splitting up the import file by how many lines per file i.e. (5000). Helps large imports'),
-	'#default_value' => variable_get('civicrm_import_import_misc_filesplit', 5000),
+	'#description' => t('Splitting up the import file by how many lines per file i.e. (5000). Helps large imports, set this to 0 to not split the file'),
+	'#default_value' => variable_get('civicrm_import_import_misc_filesplit', 0),
 	'#size' => 20,
 	'#required' => TRUE,
   );

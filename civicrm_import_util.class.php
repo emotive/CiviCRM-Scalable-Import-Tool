@@ -85,7 +85,8 @@ class civicrm_import_utils {
 			$total_line_count = substr_count($_file_string, '<br />');
 			
 			// if not enough lines to split, we just return the csv string back
-			if($total_line_count <= $split_count) {
+			// also if the count is 0 means we don't split the file
+			if(($total_line_count <= $split_count) || $split_count == 0) {
 				return $file_string;
 			} else {
 				$return_files = array();
