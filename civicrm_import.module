@@ -73,9 +73,11 @@ function civicrm_import_job_form() {
 			$cron = 'No';
 		} elseif($results->cron == 1) {
 			$cron = 'Yes';
+		} elseif($results->cron == 2) {
+			$cron = 'Processing';
 		} else {
 			$cron = 'Error';
-		}
+		}	
 		
 		// getting the log file paths
 		$logs = unserialize($results->log);
@@ -98,6 +100,7 @@ function civicrm_import_job_form() {
 			$form['log'][$results->jobid] = array('#value' => $_logs),
 			$form['action'][$results->jobid] = array('#value' => l('Delete', 'admin/civi_import/job/delete/' . $results->jobid)),
 		);
+		unset($_logs);
 	}
 	
 	return $form;

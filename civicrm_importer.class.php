@@ -118,7 +118,6 @@ class civi_import_job extends civicrm_import_db {
 		// start the parser
 		$this->csv = new civicrm_import_csv();
 		$this->csv->encoding('UTF-8');
-		$this->csv->heading = FALSE;
 		
 		// start the logger
 		$this->log = new civicrm_import_utils($this->options['log']['path'], $this->options['log']['logging']);
@@ -196,10 +195,13 @@ class civi_import_job extends civicrm_import_db {
 			}			
 		} else {
 			// in this case we are just parsing the string returned by the file splitter
+			// #FIX: CSV parser chops last record if string input given
+			$split_files .= '
+			';
 			$this->process_import($split_files, $offset);
 		}
 
-		// big fix: 
+		// #FIX: 
 		// stop gap measure for MySQL server time out after import is finished
 		// Need to switch to Drupal db boot_strap for persistent connection
 		$this->reset_db();
@@ -226,7 +228,7 @@ class civi_import_job extends civicrm_import_db {
 	private function process_import($input, $offset = 0) {
 		// parse the CSV file
 		$this->_parse($input, $offset);
-				
+		
 		// create contacts, custom fields
 		$this->contact_create($this->data->type);
 	
@@ -246,7 +248,7 @@ class civi_import_job extends civicrm_import_db {
 			if(!empty($this->data->import_tags)) {
 				$this->tags_add();
 			}
-		}		
+		}
 	}
 	
 	/*
@@ -424,8 +426,10 @@ class civi_import_job extends civicrm_import_db {
 	 *
 	 */
 	private function _parse($input, $offset = 0) {
-			$this->csv->offset = $offset;
+			// We never use heading TRUE because it will turn our
+			// array into associative array
 			$this->csv->heading = FALSE;
+			$this->csv->offset = $offset;
 			$this->csv->parse($input);
 			
 			// update the number of contacts
@@ -470,7 +474,8 @@ class civi_import_job extends civicrm_import_db {
 			unset($this->contacts);
 			$this->contacts = array();
 		}
-
+		
+		// asort($this->csv->data);
 		for($i = 0; $i< count($this->csv->data); $i++) {
 				
 			$param = array(
@@ -515,7 +520,7 @@ class civi_import_job extends civicrm_import_db {
 						break;
 					}
 				}
-				
+				// print_r($param);
 				// data filtering validation: 
 				// if the $param does not fit our validation requirement
 				// i.e. First name, Last name, Email, we do not import them.
@@ -530,15 +535,14 @@ class civi_import_job extends civicrm_import_db {
 							$contact = civicrm_contact_update($param);
 						} else {
 							// log all the ones that did not find a matching record into the error_csv
-							$this->log->_log("No matching contact found with the id provided on line $i," . implode(',', $this->csv->data[$i]), 'error');
+							$this->log->_log('Error on CSV line ' . $i . ': (' . implode(',', $this->csv->data[$i]) . ') No matching contact found with the id provided', 'error_csv');
 						}
 					}
-				
 					// #FIXED: memory leak from API call
 					CRM_Core_DAO::freeResult();
 					
 					if($contact['is_error'] == 1) {
-						$this->log->_log('Error on CSV line ' . $i . ': ' . $contact['error_message'], 'error');
+						$this->log->_log('Error on CSV line ' . $i . ': ('. implode(',', $this->csv->data[$i]) .')' . $contact['error_message'], 'error_csv');
 					} else {
 						$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
 						$this->contact_imported++;
@@ -550,13 +554,13 @@ class civi_import_job extends civicrm_import_db {
 					}
 				} else {
 					// log this row as bad row
-					$this->log->_log("Bad name or email on CSV line $i," . implode(',', $this->csv->data[$i]), 'error');
+					$this->log->_log('Error on CSV line ' . $i . ': (' . implode(',', $this->csv->data[$i]) . ') Bad name or email on CSV line', 'error_csv');
 				}
 				$this->update_count('contact');
 			}
 		}
 		
-		$this->log->_log($this->contact_imported . ' number of contact records created from ' . count($this->csv->data) . ' number of rows parsed from CSV file');
+		$this->log->_log($this->contact_imported . ' number of contact records created from ' . count($this->csv->data) . ' number of rows read from CSV file');
 	
 		// free the original parsed csv from memory
 		unset($this->csv->data);
@@ -660,8 +664,8 @@ class civi_import_job extends civicrm_import_db {
 		}
 		
 		$this->update_count('location');
-		$this->log->_log($x . ' number of pre-location data imported.'); // from ' . count($this->contacts) . ' number of created contacts');
-		$this->log->_log($this->location_imported . ' number of location data imported.'); // from ' . count($this->contacts) . ' number of created contacts');
+		$this->log->_log($x . ' number of location data (A) imported.'); // from ' . count($this->contacts) . ' number of created contacts');
+		$this->log->_log($this->location_imported . ' number of location data (B) imported.'); // from ' . count($this->contacts) . ' number of created contacts');
 		
 	}
 
@@ -778,8 +782,9 @@ class civi_import_job extends civicrm_import_db {
 					$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
 					# Send an email
 				} else {
-					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group_id ' . $group_id);
-					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group_id ' . $group_id);
+					$group_title = $this->db->get_var(sprintf("SELECT title FROM civicrm_group WHERE id = %d", $group_id));
+					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group: ' . $group_title);
+					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group: ' . $group_title);
 				}
 			}			
 		}

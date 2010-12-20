@@ -48,7 +48,7 @@ function return_import_options() {
 			'pass' => $db['pass'],
 		),
 		'email' => array(
-			'toggle' => variable_get('civicrm_import_import_email_logging', 1),
+			'toggle' => var_get('civicrm_import_import_email_logging', 0),
 			'from' => var_get('site_mail', $default_mail),
 			'to' => var_get('civicrm_import_email_to', 'email@yourdomainname.com'),
 			'cc' => var_get('civicrm_import_email_cc', 'email@yourdomainname.com'),
