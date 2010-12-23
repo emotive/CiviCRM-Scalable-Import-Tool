@@ -77,7 +77,7 @@ function civicrm_import_job_form() {
 			$cron = 'Processing';
 		} else {
 			$cron = 'Error';
-		}	
+		}
 		
 		// getting the log file paths
 		$logs = unserialize($results->log);
@@ -91,7 +91,7 @@ function civicrm_import_job_form() {
 		$rows[] = array(
 			$form['toggle'][$results->jobid] = array('#type' => 'checkbox'),
 			$form['jobid'][$results->jobid] = array('#value' => $results->jobid),
-			// $form['status'][$results->jobid] = array('#value' => $results->status),
+			$form['status'][$results->jobid] = array('#value' => _civicrm_import_import_status($results->status)),
 			$form['cron'][$results->jobid] = array('#value' => $cron),
 			// $form['contact_count'][$results->jobid] = array('#value' => $results->contact_count),
 			$form['import_count'][$results->jobid] = array('#value' => $results->import_count . '/' . $results->contact_count),
@@ -107,11 +107,36 @@ function civicrm_import_job_form() {
 	
 }
 
+function _civicrm_import_import_status($status_code = 0) {
+	switch($status_code) {
+		case 0:
+			$msg = 'Not started';
+		break;
+		case 1:
+			$msg = 'Importing contacts';
+		break;
+		case 2:
+			$msg = 'Importing address data';
+		break;
+		case 3:
+			$msg = 'Adding contacts to group';
+		break;
+		case 4:
+			$msg = 'Adding contacts to tag';
+		break;
+		case 5:
+			$msg = 'Complete';
+		break;
+	}
+	
+	return $msg;
+}
+
 function theme_civicrm_import_job_form($form) {
 	
 	$_query = civicrm_import_job_sort();
 	$query = pager_query($_query['query'], 25, 0, null);
-	unset($_query['header'][3]);
+	unset($_query['header'][4]);
 	ksort($_query['header']);
 	
 	$header = array(
@@ -124,7 +149,7 @@ function theme_civicrm_import_job_form($form) {
 		$rows[] = array(
 			drupal_render($form['toggle'][$results->jobid]),
 			drupal_render($form['jobid'][$results->jobid]),
-			// drupal_render($form['status'][$results->jobid]),
+			drupal_render($form['status'][$results->jobid]),
 			drupal_render($form['cron'][$results->jobid]),
 			// drupal_render($form['contact_count'][$results->jobid]),
 			drupal_render($form['import_count'][$results->jobid]),
@@ -148,7 +173,7 @@ function civicrm_import_job_sort() {
 	
 	$fields = array(
 		'Job ID' => 'jobid',
-		// 'Status' => 'status',
+		'Status' => 'status',
 		'Processed' => 'cron',
 		'Contacts Imported' => 'contact_count',
 		'Contacts Detected' => 'import_count',
@@ -244,6 +269,7 @@ function theme_civicrm_import_stub() {
 	$import_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/import_128.png');
 	$config_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/config_128.png');
 	$job_image =  theme('image', drupal_get_path('module', 'civicrm_import') . '/images/job_64.png');
+	$help_image = theme('image', drupal_get_path('module', 'civicrm_import') . '/images/help_128.png');
 	
 	$output = '<div class="civicrm_import_stub">
   <h2>' . l('Start a new import', 'admin/civi_import/import') . '</h2>
@@ -255,15 +281,20 @@ function theme_civicrm_import_stub() {
 ' . $config_image . '
   <p>Set import configurations</p>
 </div>
+<div class="civicrm_import_stub">
+  <h2>' . l('View Import Jobs', 'admin/civi_import/job') . '</h2>
+  ' . $job_image . '
+  <p>View pending and past import jobs</p>
+</div>
 	<div class="civicrm_import_stub">
   <h2>' . l('Custom Field Value Table', 'admin/civi_import/help') . '</h2>
   ' . $table_image . '
   <p>Gives the valid import value for different custom fields</p>
 </div>
 <div class="civicrm_import_stub">
-  <h2>' . l('View Import Jobs', 'admin/civi_import/job') . '</h2>
-  ' . $job_image . '
-  <p>View pending and past import jobs</p>
+  <h2>' . l('Help', 'admin/civi_import/docs') . '</h2>
+  ' . $help_image . '
+  <p>View import guide and other helpful documentation</p>
 </div>';
 
 	return $output;

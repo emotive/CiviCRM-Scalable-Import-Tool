@@ -25,7 +25,7 @@ This module requires the following:
 	2. CiviCRM 3.x (Versions with API V2)
 	3. *Your Drupal and CiviCRM needs to be in the same database*
 	3. Recommended of PHP memory limit control (either through .htaccess or ini_set())
-	4. 512 MB PHP memory allocation to avoid memory exhaustion error
+	4. at least 512 MB PHP memory allocation to avoid memory exhaustion error
 	5. Drupal upload element module
 	6. (Optional) CURL installed [on linux machines]
 
@@ -45,54 +45,58 @@ This module requires the following:
 /*************************************************************
  * 3. Configuration
  ************************************************************/		
-
-	1. CMS/CRM Database Host: The host address of your Drupal/CiviCRM
-	(It can be either the ip address or resolvable domain names)
 	
-	2. CMS/CRM Database Name: The name of the database that Drupal/CiviCRM
-	lives
+	1. Logging Toggle: turning "Logging on" is strongly recommended as 
+	it will give you feedback on your import after its completion.
 	
-	3. CMS/CRM Database Username: Username for database access
+	2. Log PATH: if Logging is selected, the full path to where the logging file will be stored
+	(This should be the full path to /sites/default/files/civicrm_import), the module 
+	automatically finds the default path, make sure it exist and it's writable
 	
-	4. CMS/CRM Database Password: Password for database access
-	
-	5. Logging Toggle: Select Yes or No for error and import file logging
-	
-	6. Log PATH: if Logging is selected, the full path to where the logging file will be stored
-	(This should be the full path to /sites/default/files/civicrm_import)
-	
-	7. Email from: Email from address of the sender
+	3. Email logging: If turning "Logging on" will send email notification to you when your 
+	import job start as well and when it finishes, it will also give you summarized statistics
+	on your import job
  
-	8. Email to: Email status and update that should be sent to
+	4. Email to: Email status and update that should be sent to
 	
-	9. Email greeting: The name of the email: i.e. John Doe
+	5. Email CC: An administrator or other party you wish to CC the email notifications to
 	
-	10. CMS db prefix: The Drupal database prefix, (should include the underscore _)
+	6. SMTP Host: Your email's SMTP address, for example: smtp.gmail.com
 	
-	10. Import file split lines count: If you have a large file (say 250,000) records and
+	7. Enable SSL?: Some SMTP requires SSL enabled
+	
+	8. SMTP Port: Default to 465, check your email provider
+	
+	9. SMTP User: Your username of the SMTP account: i.e. user@gmail.com
+	
+	10. SMTP Password: Your password associated with the SMTP account.
+	
+	11. CMS db prefix: Your drupal CMS table prefix.
+	
+	12. (Experimental, USE AT YOUR OWN CAUTION!!!!) Import file split lines count: 
+	If you have a large file (say 250,000) records and
 	set the line count to 50,000, the script will split the file into 5 parts and attempt
 	to import through each file. This will prevent timeout and other PHP issues and
-	improve import availability and job scheduling.
+	improve import availability and job scheduling. Set this to 0 if you wish to disable this feature.
 
 /*************************************************************
  * 4. Usage
  ************************************************************/	
 
 	* civicrm_import.cron.php * should be ran by the cron on 
-	a 5 minutes basis or longer interval. If running the file
-	results in php memory exhaustion error, please run
-	cron.php which uses shell_exec and CURL command, you will 
-	need to have curl installed on the server.
- 
+	a 5 minutes basis or longer interval. 
+	
+	For example, you can run it like
+	curl http://www.example.com/sites/all/modules/civicrm_import/civicrm_import.cron.php -s
+	 
+	Import Steps
+	 
 	1. Browse a CSV file to import, (Recommend with column headers)
 	2. Select Mapping options (First name and Email address are required import fields)
 	3. Select De-Dupe, Date Format Options
 	4. Select grouping/tagging options
 	5. Check quick validation report, Import
-	
-	(Optional, you can run cron.php in your cron job instead of civicrm_import.cron.php,
-	it simply uses a issues shell_exec cURL to prevent timeout on some servers)
-	
+		
 /*************************************************************
  * 5. Known Issues
  ************************************************************/
@@ -100,23 +104,23 @@ This module requires the following:
 	1. The script will look at blank email, states/province and postal codes as 
 	   invalid fields.
 
-	2. The script will only validate email, states/province and postal codes 
+	2. The script will only validate email, states/province and postal codes .
 	 
 	3. The quick validation processing only look at the first 100 columns of the
-	   import file
+	   import file.
 	
 	4. The script will not format custom fields that are date type, so to import 
-	   those fields, they must be in yyyy-mm-dd in order to be properly imported
+	   those fields, they must be in yyyy-mm-dd in order to be properly imported.
+	   
+	5. Email notifications on import completion does not send on large imports.
 	   
 /*************************************************************
  * 6. Upcoming Features
  ************************************************************/
  
-	1.	Ability to append contact data to update existing contacts
-	2.	Track/view Import process
-	3.  Add new group during the import process
-	4.  Integrate mapping information with CiviCRM to save import mapping
-
+	1.	Staggered import, allow multiple import jobs to be created
+		for individual import to increase reliability of the process
+	
 	If you have other ideas and suggestions, please contact at chang@emotivellc.com
 	and feel free to contribute to the code
 
@@ -139,6 +143,20 @@ This module requires the following:
 /*************************************************************
  * 8. Change log
  ************************************************************/
+ 
+ Beta 1 release: 12/23/2010
+ ------
+ Note:
+ ------
+ Added import append feature so contact data can be appended
+ through the import process to existing contacts
+ Added an import job view page to track the progress of import job
+ Simplified configuration page
+ Email notification is now SMTP based (independent from drupal mail system)
+ Ability to add imported contacts to new groups
+ Fixed inconsistency in logging, added error csv log to view a csv of validation
+ errors, duplicate contacts, etc.
+ Fixed bug where last contact in import job gets chopped
  
  Alpha 3 release: 9/20/2010
  ------

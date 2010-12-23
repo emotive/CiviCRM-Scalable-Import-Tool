@@ -287,6 +287,21 @@ class civi_import_job extends civicrm_import_db {
 	 ***********************************************************************************
 	 * Update the current job status in the queue table 
 	 * 
+	 * Import status is controlled by two fields: status / cron
+	 * 
+	 * status determines what step the import is in
+	 * 0 = not started
+	 * 1 = importing contact (contact data)
+	 * 2 = importing address data (location data [a, b]
+	 * 3 = adding contacts to group(s)
+	 * 4 = adding contacts to tag(s)
+	 * 5 = complete
+	 *
+	 * cron determines the completion status of an import
+	 * 0 = not started
+	 * 1 = finished
+	 * 2 = processing/error
+	 *
 	 * @params
 	 *
 	 * @returns
@@ -297,12 +312,24 @@ class civi_import_job extends civicrm_import_db {
 		
 		switch($status) {
 			case 'finish':
+				// get log file path and record them
 				$logs = $this->log_files();
-				$sub_query = sprintf("SET cron = 1, status = 1, date_complete = '%s', log = '%s'", date('Y-m-d H:i:s'), serialize($logs));
+				$sub_query = sprintf("SET cron = 1, status = 5, date_complete = '%s', log = '%s'", date('Y-m-d H:i:s'), serialize($logs));
 			break;
-			
+			case 'contact':
+				$sub_query = "SET status = 1";
+			break;
+			case 'location':
+				$sub_query = "SET status = 2";
+			break;
+			case 'group':
+				$sub_query = "SET status = 3";
+			break;
+			case 'tag':
+				$sub_query = "SET status = 4";
+			break;
 			case 'error':
-				$sub_query = "SET cron = 1, status = 2";
+				$sub_query = "SET cron = 99";
 			break;
 			case 'start':
 			default:
@@ -469,13 +496,14 @@ class civi_import_job extends civicrm_import_db {
 	 */	
 	private function contact_create($mode = 'import') {
 		
+		$this->import_status_update('contact');
+		
 		// bug fix for $this->contacts keep being appended
 		if(!empty($this->contacts)) {
 			unset($this->contacts);
 			$this->contacts = array();
 		}
 		
-		// asort($this->csv->data);
 		for($i = 0; $i< count($this->csv->data); $i++) {
 				
 			$param = array(
@@ -573,6 +601,8 @@ class civi_import_job extends civicrm_import_db {
 	 * Addresses (Home, Billing) | Phone (Home, Work, Other)
 	 */
 	private function location_create($mode = 'import') {
+		
+		$this->import_status_update('location');
 		
 		$x = 0;
 		foreach($this->contacts as $contact_id => $column_field_array) {
@@ -719,6 +749,8 @@ class civi_import_job extends civicrm_import_db {
 	 */
 	private function groups_add() {
 	
+		$this->import_status_update('group');
+	
 		$contact_ids = array_keys($this->contacts);
 	
 		// all the group the contacts will be added to
@@ -746,8 +778,9 @@ class civi_import_job extends civicrm_import_db {
 				if($contact_group_add_result['is_error'] == 1) {
 					$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
 				} else {
-					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group_id ' . $group_id);
-					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group_id ' . $group_id);
+					$group_title = $this->db->get_var(sprintf("SELECT title FROM civicrm_group WHERE id = %d", $group_id));
+					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group ' . $group_title);
+					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group ' . $group_title);
 				}
 			}
 		# case 2: we get a string, create a new group first
@@ -767,8 +800,9 @@ class civi_import_job extends civicrm_import_db {
 				$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
 				# Send an email
 			} else {
+				$group_id = $result['result'];
 				$params = array(
-					'group_id' => $result['result'],
+					'group_id' => $group_id,
 				);
 				$i = 1;
 				foreach($contact_ids as $contact_id) {
@@ -800,6 +834,8 @@ class civi_import_job extends civicrm_import_db {
 	 * @returns void		
 	 */
 	private function tags_add() {
+		
+		$this->import_status_update('tag');
 		
 		$contact_ids = array_keys($this->contacts);
 		
