@@ -12,7 +12,7 @@
   <li>Import Configurations</li>
   <li>View Import Jobs</li>
   <li>Custom Field Value Table</li>
-  <li>Tips and Troubleshooting</li>
+  <li>Useful tips</li>
 </ul>
 <h2>Overview</h2>
 <p>The CiviCRM Mass Import module aims to facilitate large scale contact import. <em>For smaller import jobs (less than 2 MB) import file, it is suggested to use the native CiviCRM import process</em>.</p>
@@ -159,7 +159,7 @@
     <br />
 <br />
   </li>
-  <li><strong>Import File: </strong>Upload the import file, please first click &quot;Choose File&quot; then click &quot;Update&quot; to upload the file. Note that the import file <strong>MUST </strong>be an CSV format (comma separated value file) that can be saved from Microsoft Excel or other spreadsheet software. The upload limit can flucuate due to maximum file size allowed via PHP configuration.</li>
+  <li><strong>Import File: </strong>Upload the import file, please first click &quot;Choose File&quot; then click &quot;Update&quot; to upload the file. Note that the import file <strong>MUST </strong>be an CSV format (comma separated value file) that can be saved from Microsoft Excel or other spreadsheet software. The upload limit can fluctuate due to maximum file size allowed via PHP configuration.</li>
 </ul>
 <p>Lastly, if the first row of your import file contains column headers (It is usually the case, check the box that says &quot;First row contains column headers&quot;)</p>
 <p>After you clicked &quot;Next, you should see the following screen&quot;</p>
@@ -191,7 +191,7 @@
   </li>
   <li>Log PATH: if Logging is selected,  the full path to where the logging file will be stored<br />
     (This should be the full path to  /sites/default/files/civicrm_import), the module <br />
-    automatically finds the default path,  make sure it exist and it's writable.<br />
+    automatically finds the default path,  make sure it exist and it can be written.<br />
   </li>
   <li>Email logging: If turning  &quot;Logging on&quot; will send email notification to you when your <br />
     import job start as well and when it  finishes, it will also give you summarized statistics<br />
@@ -233,6 +233,35 @@
   <li><strong>Action: </strong>You have the option to delete an import job after it is complete, doing so will not delete all the contacts imported, this should be used when you have an import job that's &quot;Stuck&quot; in order to clear the import queue.</li>
 </ul>
 <h2>Custom Field Value Table</h2>
-<p>Custom field value table</p>
+<p>The custom field value table serves the function of providing reference of what the &quot;SET VALUE&quot; custom fields values are allowed.</p>
+<p>For example, a custom field named housing type only allows three values:</p>
+<table width="95%" border="1" cellpadding="3" cellspacing="3">
+  <tr>
+    <td><strong>Field Label</strong></td>
+    <td><strong>Value</strong></td>
+  </tr>
+  <tr>
+    <td>Condominium</td>
+    <td>Condo</td>
+  </tr>
+  <tr>
+    <td>Single Family</td>
+    <td>SFamily</td>
+  </tr>
+  <tr>
+    <td>Duplex</td>
+    <td>Dup</td>
+  </tr>
+</table>
+<p>So if you wish to import this custom field &quot;housing type&quot;, the field value in your import file must be one of the three in the &quot;value&quot; column in the above table. The import module itself does not provide custom field validation.</p>
+<h2>Useful tips</h2>
+<p>Here are some tips that can help facilitate the import process</p>
+<ol>
+  <li><strong>Prepare a clean import file:</strong> Make sure that the records in the spreadsheet have valid data, use spot check to verify that primary fields all exist and does not contain unrecognized characters and symbols.</li>
+  <li><strong>Break-up your large import file into multiple imports:</strong> The possibility of a failed import increases with larger import file, so it would be helpful to break up the file before hand and import them separately.</li>
+  <li><strong>Always import source of contact: </strong>Always import &quot;source of contact&quot; field, it should be an unique identifier that you can use to search for contacts created from an import. Moreover, if an import job fails you can always search and purge the contacts imported using the &quot;source of contact&quot; field.</li>
+  <li><strong>Verify &quot;SET VALUE&quot; fields: </strong>For fields such as &quot;states&quot;, &quot;gender&quot;, or any &quot;SET VALUE&quot; custom fields, check what the allowed values are and make sure that your import file only contains those allowed values.</li>
+  <li><strong>Use proper date format: </strong>The import module expects proper date format given in order to import &quot;date&quot; type fields. To verify that you have the proper date format, you should format the date in the spreadsheet, then open the CSV file in a notepad to make sure that the date format is correct.</li>
+</ol>
 </body>
 </html>
