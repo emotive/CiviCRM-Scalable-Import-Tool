@@ -1,10 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<title>Untitled Document</title></head>
-
-<body>
+<?php $path = base_path() . drupal_get_path('module', 'civicrm_import') . '/help'; ?>
 <p>Table of Contents</p>
 <ul style="border:1px solid grey; width:300px; padding:20px auto">
   <li><a href="#overview">Overview</a></li>
@@ -40,7 +34,7 @@
 <h2><a name="new_import" id="new_import"></a>Start a new import</h2>
 <p>To start a new import, go to <em>admin/civi_import/import</em> on your site path. You should see a screen similar to below:</p>
 <p>&nbsp;</p>
-<p><img src="new_import_1.png" width="550" height="635" alt="New Import" /></p>
+<p><img src="<?php print $path; ?>/new_import_1.png" width="550" height="635" alt="New Import" /></p>
 <ul>
   <li><strong>Import Type: </strong>choose <em>New Import</em> if you wish to import new contacts into CiviCRM. If you wish to add (append) additional information on existing contacts choose <em>Data Append </em>mode. Please note that if you choose to use data append mode, you <strong>MUST </strong>have a field in your import file that can be mapped to the <strong>internal contact id </strong>or <strong>external identifier </strong>(if it exists) for the existing contacts. Note that the id mapping is very important because if mapped to the wrong contacts the result could be bad contact data.<br />
     <br />
@@ -163,7 +157,7 @@
 </ul>
 <p>Lastly, if the first row of your import file contains column headers (It is usually the case, check the box that says &quot;First row contains column headers&quot;)</p>
 <p>After you clicked &quot;Next, you should see the following screen&quot;</p>
-<p><img src="new_import_2.png" width="836" height="1178" alt="New Import, step 2" />]</p>
+<p><img src="<?php print $path; ?>/new_import_2.png" width="836" height="1178" alt="New Import, step 2" />]</p>
 <p>There are three sections in this import step:</p>
 <ul>
   <li><strong>Import field mapping: </strong>The screen will preview the first two rows of data from your import file and give you a mapping option for each field. Please carefully map each import file column to a CiviCRM contact field. (Note that if your first row contains column headers they will appear as well)<br />
@@ -179,12 +173,12 @@
   <li><strong>Import contact group(s) and tag(s) options: </strong>Here you will have the ability to add the newly imported contacts to one or more groups and/or one or more tags. You can add the newly imported contacts to existing groups and tags or choose to create a new group for the imported contacts.</li>
 </ul>
 <p>Once you have clicked next, you may see the following screen:</p>
-<p><img src="new_import_3.png" alt="import validation" width="578" height="530" /></p>
+<p><img src="<?php print $path; ?>/new_import_3.png" alt="import validation" width="578" height="530" /></p>
 <p>It is important that you take a look at the quick validation report to see contacts that failed to validate. It is suggested that the import file be cleaned and restart the import process until validation come back with no errors. It should look like below:</p>
-<p><img src="new_import_4.png" alt="clean validation" width="566" height="522" /></p>
+<p><img src="<?php print $path; ?>/new_import_4.png" alt="clean validation" width="566" height="522" /></p>
 <p>Once you have clicked &quot;Import&quot;, your import will start. (The import job should start within the time range set by the cron job, please see readme.txt for more information.</p>
 <h2><a name="import_config" id="import_config"></a>Import Configuration</h2>
-<p><img src="import_config_1.png" alt="Import Configuration" width="577" height="1242" /></p>
+<p><img src="<?php print $path; ?>/import_config_1.png" alt="Import Configuration" width="577" height="1242" /></p>
 <ol>
   <li> Logging Toggle: turning  &quot;Logging on&quot; is strongly recommended as <br />
     it will give you feedback on your  import after its completion.<br />
@@ -213,7 +207,7 @@
     improve import availability and job  scheduling. Set this to 0 if you wish to disable this feature.</li>
 </ol>
 <h2><a name="import_jobs" id="import_jobs"></a>View Import Jobs</h2>
-<p><img src="import_job.png" alt="Import job" width="623" height="238" /></p>
+<p><img src="<?php print $path; ?>/import_job.png" alt="Import job" width="623" height="238" /></p>
 <p>You can always take a look at previous import jobs as well as import job in progress, this page gives information regarding to each import jobs.</p>
 <p>A few things to take note: </p>
 <ul>
@@ -263,5 +257,3 @@
   <li><strong>Verify &quot;SET VALUE&quot; fields: </strong>For fields such as &quot;states&quot;, &quot;gender&quot;, or any &quot;SET VALUE&quot; custom fields, check what the allowed values are and make sure that your import file only contains those allowed values.</li>
   <li><strong>Use proper date format: </strong>The import module expects proper date format given in order to import &quot;date&quot; type fields. To verify that you have the proper date format, you should format the date in the spreadsheet, then open the CSV file in a notepad to make sure that the date format is correct.</li>
 </ol>
-</body>
-</html>

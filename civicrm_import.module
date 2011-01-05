@@ -45,6 +45,14 @@ function civicrm_import_menu() {
 		'type' => MENU_NORMAL_ITEM,		
 	);
 	
+	$items['admin/civi_import/docs'] = array(
+		'title' => 'Import documentation',
+		'access arguments' => array('administer site configuration'),
+		'page callback' => 'civicrm_import_docs',
+		// 'page arguments' => array('civicrm_import_job_form'),
+		'type' => MENU_NORMAL_ITEM,		
+	);
+	
 	$items['admin/civi_import/job/delete/%'] = array(
 		'title' => 'Delete import job',
 		'access arguments' => array('administer site configuration'),
@@ -237,6 +245,10 @@ function civicrm_import_theme() {
 	'civicrm_import_job_form' => array(
 		'arguments' => array('form' => NULL),
 	),
+    'civicrm_import_docs' => array(
+      'arguments' => array(),
+	  'template' => 'civicrm-import-docs',
+    ),
   );
 }
 
@@ -255,6 +267,15 @@ function civicrm_import_init() {
 	}
 	
 }
+
+function civicrm_import_docs() {
+	return theme('civicrm_import_docs');
+}
+
+function theme_civicrm_import_docs() {
+	return 'this should not appear';
+}
+
 
 
 function civicrm_import_stub() {
