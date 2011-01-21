@@ -730,12 +730,19 @@ function civicrm_import_import_form_validate($form, &$form_state) {
 				}
 				// if we are in import mode, we want to make sure these fields are required for import
 				if($form_state['values']['_import_type_choice'] == 'import') {
+					$import_error = 0;
 					if(!in_array('first_name', $form_state['values'], TRUE)) {
-						form_set_error('matching_0', 'You must import first name to establish an contact');
+						$import_error+=1;
+					}				
+					if(!in_array('last_name', $form_state['values'], TRUE)) {
+						$import_error+=1;
 					}
 					if(!in_array('email', $form_state['values'], TRUE)) {
-						form_set_error('matching_0', 'You must import email to establish an contact');
-					}				
+						$import_error+=1;
+					}
+					if($import_error > 1) {
+						form_set_error('matching_0', 'You must import at least email or first and last name to establish a contact');
+					}
 				}
 				// if we are in append mode, we want to make sure internal_contact_id or external_identifier
 				// is matched.				
@@ -1033,6 +1040,7 @@ function _civicrm_import_mapping_match() {
 		'contact_source' => t('Source of Contact Data'),
 		'user_unique_id' => t('Unique ID (OpenID)'),
 		'home_URL' => t('Website'),
+		'is_opt_out' => ('No Bulk Mailing (Is Opt Out)'),
 		'note' => t('Note'),
 	);
 		

@@ -563,14 +563,14 @@ class civi_import_job extends civicrm_import_db {
 							$contact = civicrm_contact_update($param);
 						} else {
 							// log all the ones that did not find a matching record into the error_csv
-							$this->log->_log('Error on CSV line ' . $i . ': (' . implode(',', $this->csv->data[$i]) . ') No matching contact found with the id provided', 'error_csv');
+							$this->log->_log('Error on CSV line ' . $i . ': (No matching contact found with the id provided),' . implode(',', $this->csv->data[$i]), 'error_csv');
 						}
 					}
 					// #FIXED: memory leak from API call
 					CRM_Core_DAO::freeResult();
 					
 					if($contact['is_error'] == 1) {
-						$this->log->_log('Error on CSV line ' . $i . ': ('. implode(',', $this->csv->data[$i]) .')' . $contact['error_message'], 'error_csv');
+						$this->log->_log('Error on CSV line ' . $i . ': (' . $contact['error_message'] . '),' . implode(',', $this->csv->data[$i]), 'error_csv');
 					} else {
 						$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
 						$this->contact_imported++;
@@ -582,7 +582,7 @@ class civi_import_job extends civicrm_import_db {
 					}
 				} else {
 					// log this row as bad row
-					$this->log->_log('Error on CSV line ' . $i . ': (' . implode(',', $this->csv->data[$i]) . ') Bad name or email on CSV line', 'error_csv');
+					$this->log->_log('Error on CSV line ' . $i . ': (Bad last name or email on CSV line),' . implode(',', $this->csv->data[$i]) , 'error_csv');
 				}
 				$this->update_count('contact');
 			}
@@ -1033,6 +1033,7 @@ class civi_import_job extends civicrm_import_db {
 	/*
 	 ***********************************************************************************
 	 * Filter out bad email addresses or names html tags
+	 * checks to see either email address or last name is in the list of imported fields
 	 *
 	 * @params 
 	 * (array) $contact_param				| key: API_field	|	value: API_field_value
@@ -1044,17 +1045,43 @@ class civi_import_job extends civicrm_import_db {
 	private function check_filter($contact_param = array()) {
 	
 		$check = array();
-	   
-	   if(isset($contact_param['first_name'])) {
-	   		$check[] = civicrm_import_validate::html_match($contact_param['first_name']);
-	   }
-	   if(isset($contact_param['last_name'])) {
-	   		$check[] = civicrm_import_validate::html_match($contact_param['last_name']);
-	   }
-	   if(isset($contact_param['email'])) {
-	   		$check[] = civicrm_import_validate::valid_email($contact_param['email']);
-	   }
-	   
+		$weight = 0;
+		
+		// using a weight system to decide what's valid and what's not
+		if(isset($contact_param['email'])) {
+			$weight += 10;
+		}
+		if(isset($contact_param['last_name'])) {
+			$weight += 6;
+		}
+		if(isset($contact_param['first_name'])) {
+			$weight += 5;
+		}
+
+		// just email
+		if($weight == 10) {
+			$check[] = civicrm_import_validate::valid_email($contact_param['email']);
+		// email plus last name
+		} elseif($weight == 16) {
+			$check[] = civicrm_import_validate::valid_email($contact_param['email']);
+			$check[] = civicrm_import_validate::html_match($contact_param['last_name']);
+		// email plus first name
+		} elseif($weight == 15) {
+			$check[] = civicrm_import_validate::valid_email($contact_param['email']);
+			$check[] = civicrm_import_validate::html_match($contact_param['first_name']);
+		// first plus last name
+		} elseif($weight == 11) {
+			$check[] = civicrm_import_validate::html_match($contact_param['first_name']);
+			$check[] = civicrm_import_validate::html_match($contact_param['last_name']);			
+		// email, first, last name
+		} elseif($weight == 21) {
+			$check[] = civicrm_import_validate::valid_email($contact_param['email']);
+			$check[] = civicrm_import_validate::html_match($contact_param['first_name']);
+			$check[] = civicrm_import_validate::html_match($contact_param['last_name']);
+		} else {
+			$check[] = false;
+		}
+	
 	   if(in_array(FALSE, $check)) {
 	   		return FALSE;
 	   } else {
