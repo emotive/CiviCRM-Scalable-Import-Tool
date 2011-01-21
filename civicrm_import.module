@@ -729,6 +729,7 @@ function civicrm_import_import_form_validate($form, &$form_state) {
 					form_set_error('matching_0', 'You must import at least 1 field');
 				}
 				// if we are in import mode, we want to make sure these fields are required for import
+				// user must choose either email or first+last name combination for import
 				if($form_state['values']['_import_type_choice'] == 'import') {
 					$import_error = 0;
 					if(!in_array('first_name', $form_state['values'], TRUE)) {
@@ -738,9 +739,9 @@ function civicrm_import_import_form_validate($form, &$form_state) {
 						$import_error+=1;
 					}
 					if(!in_array('email', $form_state['values'], TRUE)) {
-						$import_error+=1;
+						$import_error+=2;
 					}
-					if($import_error > 1) {
+					if($import_error > 2) {
 						form_set_error('matching_0', 'You must import at least email or first and last name to establish a contact');
 					}
 				}
