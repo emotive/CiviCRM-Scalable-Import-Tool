@@ -335,7 +335,12 @@ function civicrm_import_help_guide() {
 			OR ccf.html_type = 'CheckBox'
 			OR ccf.html_type = 'Select'
 		)
-		AND ccg.extends = 'Contact'");
+		AND 
+		( 
+			ccg.extends = 'Contact'
+		OR
+			ccg.extends = 'Individual'
+		)");
 	
 	while($result = db_fetch_object($custom_fields_query)) {
 		
