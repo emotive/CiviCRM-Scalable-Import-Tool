@@ -530,9 +530,13 @@ class civi_import_job extends civicrm_import_db {
 				}			
 			} else {
 				foreach($this->contact_data as $column => $field) {
+					// dealing with some special fields because of CiviCRM's internal workings
 					switch($field) {
 						case 'birth_date':
 							$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
+						break;
+						case 'gender':
+							$param[$field] = civicrm_import_utils::format_gender($this->csv->data[$i][$column]);
 						break;
 						// in appending job you have to get contact_id if they choose to match to external identifier
 						case 'external_identifier':

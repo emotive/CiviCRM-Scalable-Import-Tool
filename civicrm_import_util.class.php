@@ -173,8 +173,36 @@ class civicrm_import_utils {
 				return $input;
 			break;
 		}
+	}
+	
+	// format gender from M/Male to 2, F/Female to 1
+	public static function format_gender($gender) {
+		// if gender already in number format, we just return it
+		if(is_numeric($gender)) {
+			return $gender;
+		}
 		
-		
+		switch($gender) {
+			case 'female':
+			case 'FEMALE':
+			case 'F':
+			case 'Female':
+			case 'f':
+				return 1;
+			break;
+			
+			case 'male':
+			case 'M':
+			case 'Male':
+			case 'm':
+			case 'MALE':
+				return 2;
+			break;
+			
+			default:
+				return $gender;
+			break;
+		}
 	}
 	
 	
