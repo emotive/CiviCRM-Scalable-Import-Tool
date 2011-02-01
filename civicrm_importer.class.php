@@ -558,7 +558,7 @@ class civi_import_job extends civicrm_import_db {
 				// i.e. First name, Last name, Email, we do not import them.
 				// #FEATURE: $this->check_filter should return an array of bad fields so we can pin them down in 
 				// the log
-				if($this->check_filter($param)) {
+				if($this->check_filter($param, $mode)) {
 				
 					if($mode == 'import') {
 						$contact = civicrm_contact_create($param);
@@ -1046,8 +1046,14 @@ class civi_import_job extends civicrm_import_db {
 	 * (bool) TRUE
 	 * (bool) FALSE
 	 */
-	private function check_filter($contact_param = array()) {
-	
+	private function check_filter($contact_param = array(), $mode = 'import') {
+		
+		// FIXED: if mode is not import (append), we don't need to check for basic import fields because
+		// we really just need the ID match
+		if($mode != 'import') {
+			return TRUE;
+		}
+		
 		$check = array();
 		$weight = 0;
 		
