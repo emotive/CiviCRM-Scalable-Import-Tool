@@ -474,7 +474,7 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#type'=> 'upload_element',
 			'#title'=> 'Import file',
 			'#file_validators' => array(
-				'file_validate_size' => array(16777216),
+				'file_validate_size' => array(20971520),
 				'file_validate_extensions' => array('csv', 'txt'),
 				),
 			'#required' => TRUE,
