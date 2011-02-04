@@ -11,19 +11,19 @@ function civicrm_import_menu() {
 		'title' => 'CiviCRM Import',
 		'type' => MENU_NORMAL_ITEM,
 		'page callback' => 'civicrm_import_stub',
-		'access arguments' => array('administer site configuration'),	
+		'access arguments' => array('use civicrm mass import tool'),	
 	);
 	
 	$items['admin/civi_import/import'] = array(
 		'title' => 'New Import',
 		'type' => MENU_NORMAL_ITEM,
 		'page callback' => 'civicrm_import_main',
-		'access arguments' => array('administer site configuration'),
+		'access arguments' => array('use civicrm mass import tool'),
 	);
 	
 	$items['admin/civi_import/config'] = array(
 		'title' => 'Import Configuration',
-		'access arguments' => array('administer site configuration'),
+		'access arguments' => array('use civicrm mass import tool'),
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('civicrm_import_config_settings'),
 		'file' => 'civicrm_import.config.inc',
@@ -32,14 +32,14 @@ function civicrm_import_menu() {
 	
 	$items['admin/civi_import/help'] = array(
 		'title' => 'Custom Field Value Table',
-		'access arguments' => array('administer site configuration'),
+		'access arguments' => array('use civicrm mass import tool'),
 		'page callback' => 'civicrm_import_help_guide',
 		'type' => MENU_NORMAL_ITEM,
 	);
 	
 	$items['admin/civi_import/job'] = array(
 		'title' => 'View Import Jobs',
-		'access arguments' => array('administer site configuration'),
+		'access arguments' => array('use civicrm mass import tool'),
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('civicrm_import_job_form'),
 		'type' => MENU_NORMAL_ITEM,		
@@ -47,7 +47,7 @@ function civicrm_import_menu() {
 	
 	$items['admin/civi_import/docs'] = array(
 		'title' => 'Import documentation',
-		'access arguments' => array('administer site configuration'),
+		'access arguments' => array('use civicrm mass import tool'),
 		'page callback' => 'civicrm_import_docs',
 		// 'page arguments' => array('civicrm_import_job_form'),
 		'type' => MENU_NORMAL_ITEM,		
@@ -55,7 +55,7 @@ function civicrm_import_menu() {
 	
 	$items['admin/civi_import/job/delete/%'] = array(
 		'title' => 'Delete import job',
-		'access arguments' => array('administer site configuration'),
+		'access arguments' => array('use civicrm mass import tool'),
 		'page callback' => 'drupal_get_form',
 		'page arguments' => array('civicrm_import_job_delete_form', 4),
 		'type' => MENU_CALLBACK,		
@@ -64,6 +64,9 @@ function civicrm_import_menu() {
   return $items;
 }
 
+function civicrm_import_perm() {
+  return array('use civicrm mass import tool');
+}
 
 /*
  * View the import
