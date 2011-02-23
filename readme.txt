@@ -1,9 +1,9 @@
 /*****************************************
  * CiviCRM Scalable Import Module
  * by Chang Xiao (chang@emotivellc.com)
- * EMotive LLC, 2010
+ * emotive LLC, 2010 - 2011
  * GNU GENERAL LICENSE - see LICENSE.txt
- * Last Update: 9/20/2010
+ * Last Update: 2/23/2011
  ****************************************/
  
 1. Requirements
@@ -120,6 +120,8 @@ This module requires the following:
  
 	1.	Staggered import, allow multiple import jobs to be created
 		for individual import to increase reliability of the process
+		
+	2.  Custom field data type validation: for validate numbers, integers, etc.
 	
 	If you have other ideas and suggestions, please contact at chang@emotivellc.com
 	and feel free to contribute to the code
@@ -143,6 +145,17 @@ This module requires the following:
 /*************************************************************
  * 8. Change log
  ************************************************************/
+ Beta 2 release: 2/23/2011
+ ------
+ Note:
+ ------
+ Added name to each import for helpful descriptions
+ Added date format option in appending mode
+ Fixed bug with single row import
+ Fixed bug with database connection error in validation step
+ Fixed bug with ignoring billing addresses when importing 
+ only billing addresses.
+ 
  
  Beta 1 release: 12/23/2010
  ------

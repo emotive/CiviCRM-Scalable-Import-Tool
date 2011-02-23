@@ -18,7 +18,7 @@ function civicrm_import_uninstall() {
   drupal_uninstall_schema('civicrm_import');
   
   // Kill module variables
-  db_query("DELETE FROM {variable} WHERE name LIKE 'civicrm_import_%'");
+  @db_query("DELETE FROM {variable} WHERE name LIKE 'civicrm_import_%'");
 }
 
 /**
@@ -33,6 +33,13 @@ function civicrm_import_schema() {
 				'type' => 'serial',
 				'not null' => TRUE,
 				'description' => t('primary key'),
+			),
+			'name' => array(
+				'type' => 'varchar',
+				'not null' => FALSE,
+				'length' => 64,
+				'default' => 'Untitled',
+				'description' => t('The import name'),
 			),
 			'fid' => array(
 				'type' => 'int',

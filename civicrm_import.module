@@ -101,7 +101,8 @@ function civicrm_import_job_form() {
 		
 		$rows[] = array(
 			$form['toggle'][$results->jobid] = array('#type' => 'checkbox'),
-			$form['jobid'][$results->jobid] = array('#value' => $results->jobid),
+			// $form['jobid'][$results->jobid] = array('#value' => $results->jobid),
+			$form['name'][$results->jobid] = array('#value' => $results->name),
 			$form['status'][$results->jobid] = array('#value' => _civicrm_import_import_status($results->status)),
 			$form['cron'][$results->jobid] = array('#value' => $cron),
 			// $form['contact_count'][$results->jobid] = array('#value' => $results->contact_count),
@@ -147,6 +148,7 @@ function theme_civicrm_import_job_form($form) {
 	
 	$_query = civicrm_import_job_sort();
 	$query = pager_query($_query['query'], 25, 0, null);
+	unset($_query['header'][0]);
 	unset($_query['header'][4]);
 	ksort($_query['header']);
 	
@@ -159,7 +161,8 @@ function theme_civicrm_import_job_form($form) {
 	while($results = db_fetch_object($query)) {
 		$rows[] = array(
 			drupal_render($form['toggle'][$results->jobid]),
-			drupal_render($form['jobid'][$results->jobid]),
+			drupal_render($form['name'][$results->jobid]),
+			// drupal_render($form['jobid'][$results->jobid]),
 			drupal_render($form['status'][$results->jobid]),
 			drupal_render($form['cron'][$results->jobid]),
 			// drupal_render($form['contact_count'][$results->jobid]),
@@ -184,6 +187,7 @@ function civicrm_import_job_sort() {
 	
 	$fields = array(
 		'Job ID' => 'jobid',
+		'Name' => 'name',
 		'Status' => 'status',
 		'Processed' => 'cron',
 		'Contacts Imported' => 'contact_count',
@@ -384,7 +388,8 @@ function civicrm_import_main() {
 function theme_civicrm_import_import_form($form) {
 
 	if($form['step']['#value'] == 0) {
-		$output = drupal_render($form['import_type']);
+		$output = drupal_render($form['import_name']);
+		$output .= drupal_render($form['import_type']);
 		$output .= drupal_render($form['file']);
 	} elseif($form['step']['#value'] == 1) {
 		// for step 2
@@ -439,13 +444,21 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#value' => $uid,
 		);
 		
-		// #FUTURE FEATURE 
-		// Query the file table to see if the current user
-		// has file uploaded to the FTP, if so, check the path
-		// to see if the file exists, if so provide user the ability
-		// to choose from files uploaded via FTP (for larger files)
+		$form['import_name'] = array(
+			'#type' => 'fieldset',
+			'#title' => t('Import Name'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
 		
-		// $import_file_list = _civicrm_import_file_list($uid);
+		$form['import_name']['name'] = array(
+			'#type' => 'textfield',
+			'#title' => 'Name',
+			'#description' => t('Give a short/meaningful description of this import job'),
+			'#maxlength' => 64,
+			'#required' => TRUE,
+		);
+		
 		
 		$form['import_type'] = array(
 			'#type' => 'fieldset',
@@ -490,7 +503,6 @@ function civicrm_import_import_form(&$form_state, $uid) {
 		);
 	
 	} elseif($step == 1) {
-		
 		// saving the fid (for the raw import file) and import heading options into $form_state['storage']
 		$form_state['storage']['fid'] = upload_element_save($form_state['values']['civicrm_import_file'], 'civicrm_import/' . $form_state['values']['uid'], FILE_EXISTS_RENAME);		
 		$form_state['storage']['import_header'] = ($form_state['values']['civicrm_import_file_header'] == 1) ? true : false;
@@ -501,6 +513,11 @@ function civicrm_import_import_form(&$form_state, $uid) {
 		$form['_import_type_choice'] = array(
 			'#type' => 'value',
 			'#value' => $form_state['values']['import_type_choice'],
+		);
+		
+		$form['_name'] = array(
+			'#type' => 'value',
+			'#value' => $form_state['values']['name'],
 		);
 		
 		$form['fid'] = array(
@@ -536,18 +553,29 @@ function civicrm_import_import_form(&$form_state, $uid) {
 				'#options' => $matching_options,
 			);
 		}
-		
+				
+		// Import options
+		$form['options'] = array(
+			'#type'=> 'fieldset',
+			'#title'=> t('Import Options'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+
+		$form['options']['civicrm_date_options'] = array(
+			'#type' => 'radios',
+			'#title' => t('Date Format'),
+			'#options' => array(
+				'yyyy-mm-dd' => t('yyyy-mm-dd (1998-12-25)'),
+				'mm-dd-yyyy' => t('mm-dd-yyyy (12-25-1998)'),
+				'mm/dd/yyyy' => t('mm/dd/yyyy (12/25/1998)'),
+			),
+			'#required' => TRUE,
+		);			
+
 		// only show import options if this is an import job
 		if($form_state['values']['import_type_choice'] == 'import') {
 		
-			// Import options
-			$form['options'] = array(
-				'#type'=> 'fieldset',
-				'#title'=> t('Import Options'),
-				'#collapsible' => TRUE,
-				'#collapsed' => FALSE,
-			);
-
 			$form['options']['civicrm_duplicate_options'] = array(
 				'#type' => 'radios',
 				'#title' => t('Check for duplicate contact'),
@@ -557,18 +585,7 @@ function civicrm_import_import_form(&$form_state, $uid) {
 				),
 				'#required' => TRUE,
 			);
-			
-			$form['options']['civicrm_date_options'] = array(
-				'#type' => 'radios',
-				'#title' => t('Date Format'),
-				'#options' => array(
-					'yyyy-mm-dd' => t('yyyy-mm-dd (1998-12-25)'),
-					'mm-dd-yyyy' => t('mm-dd-yyyy (12-25-1998)'),
-					'mm/dd/yyyy' => t('mm/dd/yyyy (12/25/1998)'),
-				),
-				'#required' => TRUE,
-			);
-			
+						
 			// Gropus and Tags	
 			$form['groups_n_tags'] = array(
 				'#type'=> 'fieldset',
@@ -622,13 +639,11 @@ function civicrm_import_import_form(&$form_state, $uid) {
 	elseif($step == 2) {
 		$form_state['storage']['values'] = $form_state['values'];
 		
-		$db_conn = array(
-			'host' => variable_get('civicrm_import_db_host', 'localhost'),
-			'name' => variable_get('civicrm_import_db_name', 'civicrm_import_data'),
-			'user' => variable_get('civicrm_import_db_username', 'admin'),
-			'pass' => variable_get('civicrm_import_db_password', 'password'),
-		);
-		
+		// #FIX: getting db connection from global var
+		global $db_url;
+		$db_conn = parse_url($db_url);
+		$db_conn['name'] = trim($db_conn['path'], '\/\\');
+				
 		$logging = array(
 			'path' => variable_get('civicrm_import_logging_path', 'path/to/log/files'),
 			'logging' => variable_get('civicrm_import_logging_toggle', 1),
@@ -839,8 +854,9 @@ function civicrm_import_import_form_submit($form, &$form_state) {
 		}
 		$mapping = serialize($_mapping);
 			
-		$query = db_query("INSERT INTO {civicrm_import_job} (fid, type, headings, dupe_check, date_format, import_groups, import_tags, mapping, uid, date_submitted) 
-		VALUES (%d, '%s', %d, %d, '%s', '%s', '%s', '%s', %d, '%s')", 
+		$query = db_query("INSERT INTO {civicrm_import_job} (`name`, `fid`, `type`, `headings`, `dupe_check`, `date_format`, `import_groups`, `import_tags`, `mapping`, `uid`, `date_submitted`) 
+		VALUES ('%s', %d, '%s', %d, %d, '%s', '%s', '%s', '%s', %d, '%s')", 
+			addslashes($form_state['values']['_name']),
 			$form_state['values']['fid'], 
 			$form_state['values']['_import_type_choice'],
 			$form_state['values']['import_header'], 
@@ -972,21 +988,26 @@ function _civicrm_import_csv_header($fid) {
  */
 function _civicrm_import_mapping($fid, $heading = FALSE, $count = FALSE) {
 
-	// a helper function
 	$file = db_result(db_query("SELECT filepath FROM {files} WHERE fid = %d", $fid));
-
+	
 	$parser = new civicrm_import_csv();
 	$parser->limit = 2;
 	$parser->heading = $heading;
 	$parser->auto($file);
 	
 	$data = $parser->data;
-
-	$piece = array_chunk($data[0], 1);
-	$piece1 = array_chunk($data[1], 1);
 	
-	for($i = 0; $i < count($piece); $i++) {
-		$rows[$i] = array_merge($piece[$i], $piece1[$i]);
+	$piece = array_chunk($data[0], 1);
+	
+	// #FIX: single row import preview
+	// if we only parsed two rows
+	if(count($data) > 1) {
+		$piece1 = array_chunk($data[1], 1);	
+		for($i = 0; $i < count($piece); $i++) {
+			$rows[$i] = array_merge($piece[$i], $piece1[$i]);
+		}	
+	} else {
+		$rows = $piece;
 	}
 	
 	if($count == TRUE) {

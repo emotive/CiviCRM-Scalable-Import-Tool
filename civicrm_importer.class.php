@@ -123,6 +123,7 @@ class civi_import_job extends civicrm_import_db {
 		$this->log = new civicrm_import_utils($this->options['log']['path'], $this->options['log']['logging']);
 		
 		// start the mailer
+		// #BUG: if mailing notification is disabled, don't bother to initiate the mailer
 		$this->mailer = new PHPMailer();
 		$this->mailer->SetFrom($this->options['email']['from'], 'Import Scheduler');
 		$this->mailer->AddAddress($this->options['email']['to'], $this->options['email']['to_greeting']);
@@ -170,7 +171,7 @@ class civi_import_job extends civicrm_import_db {
 	
 		$this->fetch_import_job();
 		$this->mapping_sort();
-		
+				
 		$this->import_status_update('start');
 		$this->mail('started');
 		
@@ -643,15 +644,20 @@ class civi_import_job extends civicrm_import_db {
 			// The import has a Home or Billing address or both and generate either 
 			// one of 2 Location API calls.
 			$home_address_only = (isset($this->location_data['address_home']) && !isset($this->location_data['address_billing'])) ? TRUE : FALSE;
-			$billing_address_only = (isset($this->location_data['address_billing']) && !isset($this->location_data['address_billing'])) ? TRUE : FALSE;
+			$billing_address_only = (isset($this->location_data['address_billing']) && !isset($this->location_data['address_home'])) ? TRUE : FALSE;
 			$both_address = (isset($this->location_data['address_home']) && isset($this->location_data['address_billing'])) ? TRUE : FALSE;
 			
 			if($home_address_only) {
+				$address_billing['location_type_id'] = 1;
+				$address_billing['is_primary'] = 1;
 				$location_param['address'] = array(1 => $address_home);
 			}
 			if($billing_address_only) {
+				$address_billing['location_type_id'] = 5;
+				$address_billing['is_primary'] = 1;
 				$location_param['address'] = array(1 => $address_billing);
 			}
+			
 			if($both_address) {
 				
 				$location_param1 = array(
@@ -676,7 +682,6 @@ class civi_import_job extends civicrm_import_db {
 			}
 						
 			$location_param['phone'] = $phone_param;
-			
 			// unset the params so they don't get built up as we go through the array
 			unset($phone_param, $address_home, $address_billing);
 			
