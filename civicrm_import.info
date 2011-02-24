@@ -6,3 +6,4 @@ core = 6.x
 dependencies[] = upload_element
 dependencies[] = civicrm
 version = "6.x-1.0-beta2"
+project = "civicrm_import"
