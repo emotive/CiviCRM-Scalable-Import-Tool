@@ -3,7 +3,7 @@
  * by Chang Xiao (chang@emotivellc.com)
  * emotive LLC, 2010 - 2011
  * GNU GENERAL LICENSE - see LICENSE.txt
- * Last Update: 2/23/2011
+ * Last Update: 3/30/2011
  ****************************************/
  
 1. Requirements
@@ -118,8 +118,8 @@ This module requires the following:
  * 6. Upcoming Features
  ************************************************************/
  
-	1.	Staggered import, allow multiple import jobs to be created
-		for individual import to increase reliability of the process
+	1.	Intelligent de-dupe by email address: Using email address as de-duping criteria,
+	it will improve performance significantly on large databases.  
 		
 	2.  Custom field data type validation: for validate numbers, integers, etc.
 	
@@ -145,6 +145,14 @@ This module requires the following:
 /*************************************************************
  * 8. Change log
  ************************************************************/
+ 1.0 official release :) :) 3/30/2011
+ ------
+ Note:
+ ------
+ Added field mapping saving feature
+ Import job table sorting now in descending order
+ Updated documentation
+ 
  Beta 2 release: 2/23/2011
  ------
  Note:

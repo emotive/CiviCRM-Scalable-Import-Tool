@@ -34,8 +34,11 @@
 <h2><a name="new_import" id="new_import"></a>Start a new import</h2>
 <p>To start a new import, go to <em>admin/civi_import/import</em> on your site path. You should see a screen similar to below:</p>
 <p>&nbsp;</p>
-<p><img src="<?php print $path; ?>/new_import_1.png" width="550" height="635" alt="New Import" /></p>
+<p><img src="<?php print $path; ?>/new_import_1.png" width="647" height="542" alt="New Import" /></p>
 <ul>
+  <li><strong>Import Name: </strong>Put a name for this import job, i.e. &quot;Membership import 12/22/2011&quot;<strong><br />
+    <br />
+  </strong></li>
   <li><strong>Import Type: </strong>choose <em>New Import</em> if you wish to import new contacts into CiviCRM. If you wish to add (append) additional information on existing contacts choose <em>Data Append </em>mode. Please note that if you choose to use data append mode, you <strong>MUST </strong>have a field in your import file that can be mapped to the <strong>internal contact id </strong>or <strong>external identifier </strong>(if it exists) for the existing contacts. Note that the id mapping is very important because if mapped to the wrong contacts the result could be bad contact data.<br />
     <br />
   Example: (Mapping to internal contact id)<br />
@@ -153,11 +156,14 @@
     <br />
 <br />
   </li>
-  <li><strong>Import File: </strong>Upload the import file, please first click &quot;Choose File&quot; then click &quot;Update&quot; to upload the file. Note that the import file <strong>MUST </strong>be an CSV format (comma separated value file) that can be saved from Microsoft Excel or other spreadsheet software. The upload limit can fluctuate due to maximum file size allowed via PHP configuration.</li>
+  <li><strong>Import File: </strong>Upload the import file, please first click &quot;Choose File&quot; then click &quot;Update&quot; to upload the file. Note that the import file <strong>MUST </strong>be an CSV format (comma separated value file) that can be saved from Microsoft Excel or other spreadsheet software. The upload limit can fluctuate due to maximum file size allowed via PHP configuration.<br />
+    <br />
+  </li>
+  <li><strong>Saved Field Mapping:</strong> Use a previously saved field mapping in this import. This allows a faster import process if you have import files that have the same order of column headings and the saved field mapping serves as a &quot;mapping template&quot; that can be reloaded.</li>
 </ul>
 <p>Lastly, if the first row of your import file contains column headers (It is usually the case, check the box that says &quot;First row contains column headers&quot;)</p>
 <p>After you clicked &quot;Next, you should see the following screen&quot;</p>
-<p><img src="<?php print $path; ?>/new_import_2.png" width="836" height="1178" alt="New Import, step 2" />]</p>
+<p><img src="<?php print $path; ?>/new_import_2.png" width="647" height="542" alt="New Import, step 2" />]</p>
 <p>There are three sections in this import step:</p>
 <ul>
   <li><strong>Import field mapping: </strong>The screen will preview the first two rows of data from your import file and give you a mapping option for each field. Please carefully map each import file column to a CiviCRM contact field. (Note that if your first row contains column headers they will appear as well)<br />
@@ -171,6 +177,7 @@
     </ul>
   </li>
   <li><strong>Import contact group(s) and tag(s) options: </strong>Here you will have the ability to add the newly imported contacts to one or more groups and/or one or more tags. You can add the newly imported contacts to existing groups and tags or choose to create a new group for the imported contacts.</li>
+  <li><strong>Field mapping name: </strong>If you wish to re-use the field mapping from this import job, you can enter a name, next time you are importing a file with the same column headings you can reuse the field mapping from this import job.</li>
 </ul>
 <p>Once you have clicked next, you may see the following screen:</p>
 <p><img src="<?php print $path; ?>/new_import_3.png" alt="import validation" width="578" height="530" /></p>

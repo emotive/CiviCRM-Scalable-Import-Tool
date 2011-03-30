@@ -156,7 +156,63 @@ function civicrm_import_schema() {
 		'primary key' => array('jobid'),
 	);
 	
+	$schema['civicrm_import_mapping'] = array(
+			'description' => t('Stores civicrm import mappings'),
+			'fields' => array(		
+				'mapping_id' => array(
+					'type' => 'serial',
+					'not null' => TRUE,
+					'description' => t('primary key'),
+				),
+				'name' => array(
+					'type' => 'varchar',
+					'not null' => FALSE,
+					'length' => 64,
+					'not null' => TRUE,
+					'description' => t('The import mapping name'),
+				),
+				'mapping' => array(
+					'type' => 'text',
+					'size' => 'medium',
+					'not null' => TRUE,
+					'description' => t('import file mapping'),
+				),	
+			),
+			'primary key' => array('mapping_id'),
+		);
 	
 	return $schema;
+}
 
+/*
+ * update for official 1.0 release
+ */ 
+function civicrm_import_update_6100() {
+	$schema['civicrm_import_mapping'] = array(
+			'description' => t('Stores civicrm import mappings'),
+			'fields' => array(		
+				'mapping_id' => array(
+					'type' => 'serial',
+					'not null' => TRUE,
+					'description' => t('primary key'),
+				),
+				'name' => array(
+					'type' => 'varchar',
+					'not null' => FALSE,
+					'length' => 64,
+					'not null' => TRUE,
+					'description' => t('The import mapping name'),
+				),
+				'mapping' => array(
+					'type' => 'text',
+					'size' => 'medium',
+					'not null' => TRUE,
+					'description' => t('import file mapping'),
+				),	
+			),
+			'primary key' => array('mapping_id'),
+	);
+  $ret = array();
+  db_create_table($ret, 'civicrm_import_mapping', $schema['civicrm_import_mapping']);
+  return $ret;
 }

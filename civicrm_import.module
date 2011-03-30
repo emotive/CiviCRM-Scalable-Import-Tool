@@ -478,7 +478,6 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#required' => TRUE,
 		);
 		
-		
 		$form['file'] = array(
 			'#type'=> 'fieldset',
 			'#title'=> t('Import file'),
@@ -501,6 +500,21 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#title' => t('First row contains column headers'),
 			'#description' => t('Check this box if the first row of your file consists of field names (Example: \'First Name\',\'Last Name\',\'Email\')'),
 		);
+		
+		$form['saved_mapping'] = array(
+			'#type'=> 'fieldset',
+			'#title'=> t('Saved Field Mapping'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+		
+		$form['saved_mapping']['saved_mapping_select'] = array(
+			'#type' => 'select',
+			'#title' => 'Saved mapping',
+			'#description' => t('Choose a previously saved field mapping in this import.'),
+			'#options' => _civicrm_import_get_field_mappings(),
+		);
+		
 	
 	} elseif($step == 1) {
 		// saving the fid (for the raw import file) and import heading options into $form_state['storage']
@@ -535,6 +549,14 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			'#value' => $rows,
 		);
 		
+		$mapping = array();
+		// bug 69: feature request. See if saved mapping has been selected
+		if($form_state['values']['saved_mapping_select'] != '') {
+			$_mapping = db_result(db_query("SELECT mapping FROM {civicrm_import_mapping} WHERE mapping_id = %d", $form_state['values']['saved_mapping_select']));
+			$mapping = unserialize($_mapping);
+		}
+		
+		
 		// Create form elements so the theme function
 		// can theme into a table
 		for($i = 0; $i<count($rows); $i++) {
@@ -551,6 +573,7 @@ function civicrm_import_import_form(&$form_state, $uid) {
 			$form['matching_' . $i] = array(
 				'#type' => 'select',
 				'#options' => $matching_options,
+				'#default_value' => (!empty($mapping)) ? array($mapping[$i]) : array('do_not_import'),
 			);
 		}
 				
@@ -632,6 +655,21 @@ function civicrm_import_import_form(&$form_state, $uid) {
 				'#title' => 'Group name (new)',
 				'#description' => t('Input the new group name here'),
 				'#suffix' => '</div>',
+			);
+			
+			// working here
+			$form['field_mappings'] = array(
+				'#type'=> 'fieldset',
+				'#title'=> t('Save field mapping for future use?'),
+				'#collapsible' => TRUE,
+				'#collapsed' => FALSE,
+			);
+
+			$form['field_mappings']['field_mappings'] = array(
+				'#type' => 'textfield',
+				'#title' => 'field mapping name',
+				'#description' => t('Give this field mapping a meaningful name for future re-use'),
+				'#maxlength' => 64,
 			);
 		}	
 	} 
@@ -868,6 +906,12 @@ function civicrm_import_import_form_submit($form, &$form_state) {
 			$user->uid, 
 			date('Y-m-d h:i:s', time())
 		);
+		
+		// Bug 69 (Feature, save field mappings)
+		if(trim($form_state['values']['field_mappings']) != '') {
+			db_query("INSERT INTO {civicrm_import_mapping} (`name`, `mapping`) VALUES ('%s', '%s')", addslashes($form_state['values']['field_mappings']), $mapping);
+		}
+		
 		
 		// last step clear the storage bin
 		unset($form_state['storage']);
@@ -1106,6 +1150,17 @@ function civicrm_import_flattenArray(array $array){
 		$ret_array[] = $value;
 	}
 	return $ret_array;
+}
+
+function _civicrm_import_get_field_mappings() {
+	$data = array('' => '--Please Select--');
+	$query = db_query("SELECT * FROM {civicrm_import_mapping}");
+	
+	while($result = db_fetch_object($query)) {
+		$data[$result->mapping_id] = t($result->name);
+	}
+	
+	return $data;
 }
 
 ?>
