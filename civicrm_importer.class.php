@@ -512,6 +512,13 @@ class civi_import_job extends civicrm_import_db {
 			);
 			if($mode == 'import') {
 				$param['dupe_check'] = ($this->data->dupe_check == 1) ? TRUE : FALSE;
+				
+				// #FIX issue 87: auto-append contact source if it is not mapped
+				// appending the date and the job id to the import
+				if(!in_array('contact_source', $this->contacts)) {
+					$param['contact_source'] = date('Ymd') . '_' . $this->data->jobid;
+				}
+				
 			}
 			
 			// in case we are doing an append with *ONLY* Location data we still need to fill $this->contact
