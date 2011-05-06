@@ -603,10 +603,12 @@ function civicrm_import_import_form(&$form_state, $uid) {
 				'#type' => 'radios',
 				'#title' => t('Check for duplicate contact'),
 				'#options' => array(
+					2 => t('Email Only'),
 					1 => t('Yes'),
 					0 => t('No'),
 				),
 				'#required' => TRUE,
+				'#description' => t('Email only will only dedupe based on email, Yes will use the default de-dupe rules but it will be MUCH slower.'),
 			);
 						
 			// Gropus and Tags	
@@ -804,6 +806,12 @@ function civicrm_import_import_form_validate($form, &$form_state) {
 					}
 					if($import_error > 2) {
 						form_set_error('matching_0', 'You must import at least email or first and last name to establish a contact');
+					}
+					
+					if($form_state['values']['civicrm_duplicate_options'] == 2) {
+						if(!in_array('email', $form_state['values'], TRUE)) {
+							form_set_error('civicrm_duplicate_options', 'In order to use email only dedupe, you need to map the email field');
+						}
 					}
 				}
 				// if we are in append mode, we want to make sure internal_contact_id or external_identifier

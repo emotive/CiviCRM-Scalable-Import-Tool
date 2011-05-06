@@ -519,6 +519,19 @@ class civi_import_job extends civicrm_import_db {
 					$param['contact_source'] = date('Ymd') . '_' . $this->data->jobid;
 				}
 				
+				// #FIX issue 72: Add email only de-dupe feature
+				if($this->data->dupe_check == 2) {
+					$mapping = array_flip($this->contact_data);
+					
+					$email = $this->csv->data[$i][$mapping['email']];
+					$contact_id = $this->check_email($email);
+					if(is_numeric($contact_id)) {
+						// for email only dedupe, we delete the param and skip this iteration
+						$this->log->_log('Error on CSV line ' . $i . ':, (Matching contact found:, '. $contact_id .'),' . implode(',', $this->csv->data[$i]), 'error_csv');
+						unset($param);
+						continue;					
+					}
+				}
 			}
 			
 			// in case we are doing an append with *ONLY* Location data we still need to fill $this->contact
@@ -575,14 +588,14 @@ class civi_import_job extends civicrm_import_db {
 							$contact = civicrm_contact_update($param);
 						} else {
 							// log all the ones that did not find a matching record into the error_csv
-							$this->log->_log('Error on CSV line ' . $i . ': (No matching contact found with the id provided),' . implode(',', $this->csv->data[$i]), 'error_csv');
+							$this->log->_log('Error on CSV line ' . $i . ':, (No matching contact found with the id provided),' . implode(',', $this->csv->data[$i]), 'error_csv');
 						}
 					}
 					// #FIXED: memory leak from API call
 					CRM_Core_DAO::freeResult();
 					
 					if($contact['is_error'] == 1) {
-						$this->log->_log('Error on CSV line ' . $i . ': (' . $contact['error_message'] . '),' . implode(',', $this->csv->data[$i]), 'error_csv');
+						$this->log->_log('Error on CSV line ' . $i . ':, (' . $contact['error_message'] . '),' . implode(',', $this->csv->data[$i]), 'error_csv');
 					} else {
 						$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
 						$this->contact_imported++;
@@ -594,7 +607,7 @@ class civi_import_job extends civicrm_import_db {
 					}
 				} else {
 					// log this row as bad row
-					$this->log->_log('Error on CSV line ' . $i . ': (Bad last name or email on CSV line),' . implode(',', $this->csv->data[$i]) , 'error_csv');
+					$this->log->_log('Error on CSV line ' . $i . ':, (Bad last name or email on CSV line),' . implode(',', $this->csv->data[$i]) , 'error_csv');
 				}
 				$this->update_count('contact');
 			}
@@ -1046,6 +1059,7 @@ class civi_import_job extends civicrm_import_db {
 		
 	}
 	
+	
 	/*
 	 ***********************************************************************************
 	 * Filter out bad email addresses or names html tags
@@ -1111,6 +1125,30 @@ class civi_import_job extends civicrm_import_db {
 	   }
 	   
 	}
+
+	/*
+	 ***********************************************************************************
+	 * Check given email address to see if a contact exists for the email
+	 * 
+	 *
+	 * @params 
+	 * (string) $email
+	 * 
+	 * @returns
+	 * int $contact_id
+	 * (bool) FALSE
+	 */	
+	private function check_email($email) {
+		$email = trim($email);
+		$contact_id = CRM_Core_DAO::singleValueQuery(sprintf("SELECT contact_id FROM civicrm_email WHERE email = '%s'", $email));
+		
+		if(!is_numeric($contact_id)) {
+			return FALSE;
+		}
+		return $contact_id;
+		
+	}
+	
 } // end of class
 
 ?>
