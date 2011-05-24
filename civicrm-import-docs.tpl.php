@@ -163,7 +163,7 @@
 </ul>
 <p>Lastly, if the first row of your import file contains column headers (It is usually the case, check the box that says &quot;First row contains column headers&quot;)</p>
 <p>After you clicked &quot;Next, you should see the following screen&quot;</p>
-<p><img src="<?php print $path; ?>/new_import_2.png" width="647" height="542" alt="New Import, step 2" />]</p>
+<p><img src="<?php print $path; ?>/new_import_2.png" width="647" height="542" alt="New Import, step 2" /></p>
 <p>There are three sections in this import step:</p>
 <ul>
   <li><strong>Import field mapping: </strong>The screen will preview the first two rows of data from your import file and give you a mapping option for each field. Please carefully map each import file column to a CiviCRM contact field. (Note that if your first row contains column headers they will appear as well)<br />
@@ -172,7 +172,13 @@
   </li>
   <li><strong>Import Options: </strong>Various options for the import.
     <ul>
-      <li>Check for duplicate contact: enable this option will check all imported contacts against existing contacts. If an existing contact is found, the duplicated record will not be imported. The module uses the CiviCRM default de-dupe rule. (Check duplicate contact based on email)</li>
+      <li>Check for duplicate contact: 
+        <ul>
+          <li><em>Email Only: </em>If the only duplicate criteria you care about is the email address then the import process will only check duplicate contacts based on email address. This option is faster in a larger database setting.</li>
+          <li><em>Yes:</em>This option will check all imported contacts against existing contacts. If an existing contact is found, the duplicated record will not be imported. The module uses the CiviCRM default de-dupe rule. (Check duplicate contact based on email or first+last name) This option is slower on larger databases</li>
+          <li><em>No: </em>Duplicate contacts will be created.</li>
+        </ul>
+      </li>
       <li>Date Format: The date format in the import file, mainly used in <strong>&quot;Date of Birth&quot; </strong>and other custom date fields.</li>
     </ul>
   </li>

@@ -145,6 +145,15 @@ This module requires the following:
 /*************************************************************
  * 8. Change log
  ************************************************************/
+ 1.1 release 5/24/2011
+ ------
+ Note:
+ ------
+ Added email only deduping option for faster deduping
+ Automatically added contact source to imported contact if the field is not mapped, this helps 
+ identify the batch the contact is importd from (In the format of date + import_job_id)
+ Updated documentation
+ 
  1.0 official release :) :) 3/30/2011
  ------
  Note:
