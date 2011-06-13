@@ -647,6 +647,11 @@ class civi_import_job extends civicrm_import_db {
 					$phone_param[] = array('location_type' => 'Work', 'phone' => $column_field_array[$column_matched]);
 				}
 			}
+			if(isset($this->location_data['phone_other'])) {
+				foreach($this->location_data['phone_other'] as $column_matched => $field) {
+					$phone_param[] = array('location_type' => 'Other', 'phone' => $column_field_array[$column_matched]);
+				}
+			}
 			if(isset($this->location_data['address_home'])) {
 				$address_home['location_type'] = 'Home';
 				foreach($this->location_data['address_home'] as $column_matched => $field) {
