@@ -13,11 +13,13 @@ require_once('CRM/Core/DAO.php');
 $config =& CRM_Core_Config::singleton();
 
 // CiviCRM APIs
-require_once('api/v2/Contact.php');
+/*require_once('api/v2/Contact.php');
 require_once('api/v2/Location.php');
 require_once('api/v2/GroupContact.php');
 require_once('api/v2/Group.php');
-require_once('api/v2/EntityTag.php');
+require_once('api/v2/EntityTag.php');*/
+
+require_once('api/api.php');
 
 // Utilities
 // if(!class_exists('parseCSV')) {
@@ -508,6 +510,7 @@ class civi_import_job extends civicrm_import_db {
 		for($i = 0; $i< count($this->csv->data); $i++) {
 				
 			$param = array(
+				'version' => '3',
 				'contact_type' => 'Individual',
 			);
 			if($mode == 'import') {
@@ -582,10 +585,14 @@ class civi_import_job extends civicrm_import_db {
 				if($this->check_filter($param, $mode)) {
 				
 					if($mode == 'import') {
-						$contact = civicrm_contact_create($param);
+						// @CiviCRM API (v3)
+						$contact = civicrm_api('contact', 'create', $param);
 					} else {
 						if(isset($param['contact_id']) && $param['contact_id'] != '') {
-							$contact = civicrm_contact_update($param);
+							// @CiviCRM API (v3)
+							$param['id'] = $param['contact_id'];
+							unset($param['contact_id']);
+							$contact = civicrm_api('contact', 'create', $param);
 						} else {
 							// log all the ones that did not find a matching record into the error_csv
 							$this->log->_log('Error on CSV line ' . $i . ':, (No matching contact found with the id provided),' . implode(',', $this->csv->data[$i]), 'error_csv');
@@ -639,17 +646,17 @@ class civi_import_job extends civicrm_import_db {
 				
 			if(isset($this->location_data['phone_home'])) {
 				foreach($this->location_data['phone_home'] as $column_matched => $field) {
-					$phone_param[] = array('location_type' => 'Home', 'phone' => $column_field_array[$column_matched]);
+					$this->phone_create($field, $contact_id, 'Home', 1);
 				}
 			}
 			if(isset($this->location_data['phone_work'])) {
 				foreach($this->location_data['phone_work'] as $column_matched => $field) {
-					$phone_param[] = array('location_type' => 'Work', 'phone' => $column_field_array[$column_matched]);
+					$this->phone_create($field, $contact_id, 'Work');
 				}
 			}
 			if(isset($this->location_data['phone_other'])) {
 				foreach($this->location_data['phone_other'] as $column_matched => $field) {
-					$phone_param[] = array('location_type' => 'Other', 'phone' => $column_field_array[$column_matched]);
+					$this->phone_create($field, $contact_id, 'Other');
 				}
 			}
 			if(isset($this->location_data['address_home'])) {
@@ -657,6 +664,11 @@ class civi_import_job extends civicrm_import_db {
 				foreach($this->location_data['address_home'] as $column_matched => $field) {
 					$address_home[$field] = $column_field_array[$column_matched];
 				}
+				$address_home['version'] = '3';
+				$address_home['location_type_id'] = 1;
+				$address_home['contact_id'] = $contact_id;
+				$address_home['is_primary'] = 1;
+				
 			}
 			if(isset($this->location_data['address_billing'])) {
 				$address_billing['location_type'] = 'Billing';
@@ -795,6 +807,7 @@ class civi_import_job extends civicrm_import_db {
 		if(is_array($groups)) {
 			foreach($groups as $group_id) {
 				$params = array(
+					'version' => '3',
 					'group_id' => $group_id,
 				);
 				
@@ -806,20 +819,22 @@ class civi_import_job extends civicrm_import_db {
 					$i++;
 				}
 				
-				$contact_group_add_result = civicrm_group_contact_add($params);
+				// @CiviCRM API (v3)
+				$contact_group_add_result = civicrm_api('group_contact', 'create', $params);
 				
 				// what happens if it throws an error? is it better to add each person individually?
 				if($contact_group_add_result['is_error'] == 1) {
 					$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
 				} else {
 					$group_title = $this->db->get_var(sprintf("SELECT title FROM civicrm_group WHERE id = %d", $group_id));
-					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group ' . $group_title);
-					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group ' . $group_title);
+					$this->log->_log($contact_group_add_result['values']['added'] . ' number of contact records added to group ' . $group_title);
+					$this->log->_log($contact_group_add_result['values']['not_added'] . ' number of contact records not added to group ' . $group_title);
 				}
 			}
 		# case 2: we get a string, create a new group first
 		} else {
 			$group_params = array(
+				'version'	  => '3',
 				'name'        => str_replace(' ', '_', strtolower($groups)), // machine readable name
 				'title'       => $groups,
 				'description' => '',
@@ -827,15 +842,17 @@ class civi_import_job extends civicrm_import_db {
 				'visibility'  => 'User and User Admin Only',
 				'group_type'  => array( '1' => 1, '2' => 1 ),
 			);
-
-			$result = civicrm_group_add( $group_params );
-			if ( civicrm_error ( $result )) {
+			
+			// @CiviCRM API (v3)
+			$result = civicrm_api('Group', 'create', $group_params );
+			if ( $result['is_error'] == 1) {
 				# God forbid adding group causes error
 				$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
 				# Send an email
 			} else {
-				$group_id = $result['result'];
+				$group_id = $result['id'];
 				$params = array(
+					'version' => '3',
 					'group_id' => $group_id,
 				);
 				$i = 1;
@@ -845,14 +862,15 @@ class civi_import_job extends civicrm_import_db {
 					$i++;
 				}
 				
-				$contact_group_add_result = civicrm_group_contact_add($params);
+				// @CiviCRM API (v3)
+				$contact_group_add_result = civicrm_api('group_contact', 'create', $params);
 				if($contact_group_add_result['is_error'] == 1) {
 					$this->log->_log('Error adding to group: ' . $contact_group_add_result['error_message'], 'error');
 					# Send an email
 				} else {
 					$group_title = $this->db->get_var(sprintf("SELECT title FROM civicrm_group WHERE id = %d", $group_id));
-					$this->log->_log($contact_group_add_result['added'] . ' number of contact records added to group: ' . $group_title);
-					$this->log->_log($contact_group_add_result['not_added'] . ' number of contact records not added to group: ' . $group_title);
+					$this->log->_log($contact_group_add_result['values']['added'] . ' number of contact records added to group: ' . $group_title);
+					$this->log->_log($contact_group_add_result['values']['not_added'] . ' number of contact records not added to group: ' . $group_title);
 				}
 			}			
 		}
@@ -878,6 +896,7 @@ class civi_import_job extends civicrm_import_db {
 		
 		foreach($tags as $tag_id) {
 			$params = array(
+				'version' => 3,
 				'tag_id' => $tag_id,
 			);
 
@@ -888,14 +907,15 @@ class civi_import_job extends civicrm_import_db {
 				$params[$contact_key] = $contact_id;
 				$i++;
 			}
-
-			$contact_tag_add_result =& civicrm_entity_tag_add($params);
+			
+			// @CiviCRM API (v3)
+			$contact_tag_add_result = civicrm_api('entity_tag', 'create', $params);
 			
 			if($contact_tag_add_result['is_error'] == 1) {
 				$this->log->_log('Error adding to tag: ' . $contact_tag_add_result['error_message'], 'error');
 			} else {
-				$this->log->_log($contact_tag_add_result['added'] . ' number of contact records added to tag_id ' . $tag_id);
-				$this->log->_log($contact_tag_add_result['not_added'] . ' number of contact records not added to tag_id ' . $tag_id);
+				$this->log->_log($contact_tag_add_result['values']['added'] . ' number of contact records added to tag_id ' . $tag_id);
+				$this->log->_log($contact_tag_add_result['values']['not_added'] . ' number of contact records not added to tag_id ' . $tag_id);
 			}
 		}
 	}
@@ -1153,7 +1173,57 @@ class civi_import_job extends civicrm_import_db {
 		return $contact_id;
 		
 	}
+
+	/*
+	 ***********************************************************************************
+	 * Create a phone record using civicrm API (v3)
+	 * 
+	 * @params 
+	 * (string) $phone					Phone number
+	 * (int) $contact_id				internal contact id
+	 * (string) $location_type			Home | Work | Other
+	 * (int) $is_primary				0 or 1 
+	 * 
+	 * @returns
+	 * null
+	 */		
+	private function phone_create($phone, $contact_id, $location_type = 'Home', $is_primary = 0) {
+		switch($location_type) {
+			case 'Work':
+			case 'work':
+				$location_type_id = 2;
+			break;
+			
+			case 'Other':
+			case 'other':
+				$location_type_id = 6;
+			break;
+			
+			case 'Home':
+			case 'home':
+			default:
+				$location_type_id = 1;
+			break;
+			
+			break;
+		}
+	
+		$phone_param = array(
+			'version' => '3',
+			'location_type_id' => $location_type_id, 
+			'phone' => $phone,
+			'contact_id' => $contact_id, 
+			'is_primary' => $is_primary,
+		);
+		
+		// @CiviCRM API (v3)
+		$result = civicrm_api('Phone', 'create', $phone_param);
+		if($result['is_error'] == 1) {
+			$this->log->_log('Error (Phone API Call) on ContactID: ' . $contact_id . ': ' . $result['error_message'], 'error');
+		}
+	
+	}
+	
 	
 } // end of class
 
-?>
