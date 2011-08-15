@@ -173,7 +173,7 @@ class civi_import_job extends civicrm_import_db {
 	
 		$this->fetch_import_job();
 		$this->mapping_sort();
-				
+						
 		$this->import_status_update('start');
 		$this->mail('started');
 		
@@ -236,9 +236,24 @@ class civi_import_job extends civicrm_import_db {
 		$this->contact_create($this->data->type);
 	
 		// location data (address, phone numbers)
-		if(!empty($this->location_data)) {
-			$this->location_create($this->data->type);
+//		if(!empty($this->location_data)) {
+//			$this->location_create($this->data->type);
+//		}
+
+		// import phone
+		if(isset($this->location_data['address_home']) ||
+		isset($this->location_data['address_billing'])) {
+			$this->address_create($this->data->type);
 		}
+		
+		// import address
+		if(isset($this->location_data['phone_home']) ||
+		isset($this->location_data['phone_work']) ||
+		isset($this->location_data['phone_other'])
+		) {
+			$this->phone_create($this->data->type);	
+		}
+
 			
 		// if we are doing an import job
 		if($this->data->type == 'import') {
@@ -557,7 +572,7 @@ class civi_import_job extends civicrm_import_db {
 					// dealing with some special fields because of CiviCRM's internal workings
 					switch($field) {
 						case 'birth_date':
-							$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->civicrm_date_options);
+							$param[$field] = civicrm_import_utils::format_date($this->csv->data[$i][$column], $this->data->date_format);
 						break;
 						case 'gender':
 							$param[$field] = civicrm_import_utils::format_gender($this->csv->data[$i][$column]);
@@ -604,7 +619,7 @@ class civi_import_job extends civicrm_import_db {
 					if($contact['is_error'] == 1) {
 						$this->log->_log('Error on CSV line ' . $i . ':, (' . $contact['error_message'] . '),' . implode(',', $this->csv->data[$i]), 'error_csv');
 					} else {
-						$this->contacts[$contact['contact_id']] = $this->csv->data[$i];
+						$this->contacts[$contact['id']] = $this->csv->data[$i];
 						$this->contact_imported++;
 						
 						// record the contact import count for tracking
@@ -627,6 +642,95 @@ class civi_import_job extends civicrm_import_db {
 	}
 	
 	
+
+	/***********************************************************************************************************
+	 * Use CiviCRM API to create phone number of various types
+	 *
+	 * @params
+	 * #internal
+	 * (array) $this->location_data		|		key: phone_home				value: matched_column => field_name
+	 *												 phone_work
+	 *												 phone_other
+	 *				
+	 * (array) $this->contacts			|		key: contact_id				value: column/field array
+	 *
+	 * #external
+	 * (string) $mode							The mode of the import: (import/append)
+	 * 
+	 * @return
+	 * #internal
+	 * null
+	 */	
+	private function phone_create($mode = 'import') {
+		foreach($this->contacts as $contact_id => $column_field_array) {
+			// let's find out which phone columns have been matched
+			$phone_import = array(
+				'home' => (isset($this->location_data['phone_home'])) ? TRUE : FALSE,
+				'work' => (isset($this->location_data['phone_work'])) ? TRUE : FALSE,
+				'other' => (isset($this->location_data['phone_other'])) ? TRUE : FALSE,
+			);
+			
+			foreach($phone_import as $type => $import_or_not) {
+				if($import_or_not) {
+					// building the meta data
+					$phone_type = 'phone_' . $type;	
+					$matched_column = array_keys($this->location_data[$phone_type]);
+					$is_primary = ($type == 'home') ? 1 : 0;
+					
+					$phone_insert_value = $column_field_array[$matched_column[0]];
+									
+					// making the api call
+					// right now we are not making any distinctions on import/append
+					// phone number will just be added to the contact regardless
+					$this->_phone_create($phone_insert_value, $contact_id, $type, $is_primary, $mode);		
+				}
+				
+			}
+		}	
+	}
+	
+	/***********************************************************************************************************
+	 * Use CiviCRM API to create addresses for given contact
+	 *
+	 * @params
+	 * #internal
+	 * (array) $this->location_data		|		key: address_home			value: matched_column => field_name
+	 *												 address_billing
+	 *				
+	 * (array) $this->contacts			|		key: contact_id				value: column/field array
+	 *
+	 * #external
+	 * (string) $mode							The mode of the import: (import/append)
+	 * 
+	 * @return
+	 * #internal
+	 * null
+	 */	
+	private function address_create($mode = 'import') {
+		foreach($this->contacts as $contact_id => $column_field_array) {
+			$address_import = array(
+				'home' => (isset($this->location_data['address_home'])) ? TRUE : FALSE,
+				'billing' => (isset($this->location_data['address_billing'])) ? TRUE : FALSE,
+			);
+			
+			foreach($address_import as $type => $import_or_not) {
+				
+				if($import_or_not) {
+					$address_type = 'address_' . $type;
+					$is_primary = ($type == 'home') ? 1 : 0;
+					
+					// $matched_column = array_keys($this->location_data[$phone_type]);
+					
+					// $address_insert_value = $column_field_array[$matched_column[0]];
+					
+					$this->_address_create($this->location_data[$address_type], $column_field_array, $contact_id, $type, $is_primary, $mode);
+				}
+			}
+		}				
+	}
+	
+	// we might need email update as well
+
 	/*
 	 * Handles the location API calls
 	 * In our case, we only care about
@@ -811,10 +915,14 @@ class civi_import_job extends civicrm_import_db {
 					'group_id' => $group_id,
 				);
 				
-				$i = 1;
+				$i = 0;
 				// add the contact_ids to the param
 				foreach($contact_ids as $contact_id) {
-					$contact_key = 'contact_id.' . $i;
+					if($i == 0) {
+						$contact_key = 'contact_id'; 	
+					} else {
+						$contact_key = 'contact_id.' . $i;
+					}
 					$params[$contact_key] = $contact_id;
 					$i++;
 				}
@@ -900,10 +1008,14 @@ class civi_import_job extends civicrm_import_db {
 				'tag_id' => $tag_id,
 			);
 
-			$i = 1;
+			$i = 0;
 			// add the contact_ids to the param
 			foreach($contact_ids as $contact_id) {
-				$contact_key = 'contact_id.' . $i;
+				if($i == 0) {
+					$contact_key = 'contact_id';	
+				} else {
+					$contact_key = 'contact_id.' . $i;
+				}
 				$params[$contact_key] = $contact_id;
 				$i++;
 			}
@@ -932,6 +1044,9 @@ class civi_import_job extends civicrm_import_db {
 	 *										value:	file path of the log.
 	 */	
 	private function log_files() {
+		
+		$data = array();
+		
 		$log['log'] = $this->log->__get('log_path') . '/log/' . $this->log->__get('log_file');
 		$log['error'] = $this->log->__get('log_path') . '/error/' . $this->log->__get('log_file');
 		$log['csv'] = $this->log->__get('log_path') . '/error_csv/' . $this->log->__get('log_file');
@@ -985,8 +1100,9 @@ class civi_import_job extends civicrm_import_db {
 				Sincerely, <br />
 				";
 				
-				$this->mailer->AddAttachment($logs['error']);
-					
+				if(isset($logs['error'])) {
+					$this->mailer->AddAttachment($logs['error']);
+				}					
 			break;
 			
 			case 'error':
@@ -1187,7 +1303,7 @@ class civi_import_job extends civicrm_import_db {
 	 * @returns
 	 * null
 	 */		
-	private function phone_create($phone, $contact_id, $location_type = 'Home', $is_primary = 0) {
+	private function _phone_create($phone, $contact_id, $location_type = 'Home', $is_primary = 0, $mode = 'import') {
 		switch($location_type) {
 			case 'Work':
 			case 'work':
@@ -1216,6 +1332,9 @@ class civi_import_job extends civicrm_import_db {
 			'is_primary' => $is_primary,
 		);
 		
+		// when we are doing append, we will just append and not replace because replace has 3 calls
+		
+		
 		// @CiviCRM API (v3)
 		$result = civicrm_api('Phone', 'create', $phone_param);
 		if($result['is_error'] == 1) {
@@ -1224,6 +1343,58 @@ class civi_import_job extends civicrm_import_db {
 	
 	}
 	
+	
+	/*
+	 ***********************************************************************************
+	 * Create an address record using civicrm API (v3)
+	 * 
+	 * @params 
+	 * (array) $address_fields			key: column matched		value: address field name
+	 * (array) $address_data			key: column				value: address data
+	 * (int) $contact_id				internal contact id
+	 * (string) $location_type			Home | Billing
+	 * (int) $is_primary				0 | 1
+	 * (string) $mode					import | append
+	 * 
+	 * @returns
+	 * null
+	 */			
+	private function _address_create($address_fields, $address_data, $contact_id, $location_type = 'Home', $is_primary = 0, $mode = 'import') {
+		switch($location_type) {			
+			case 'Billing':
+			case 'billing':
+				$location_type_id = 5;
+				$billing = 1;
+			break;
+			
+			case 'Home':
+			case 'home':
+			default:
+				$location_type_id = 1;
+				$billing = 0;
+			break;
+			
+		}
+		
+		$params = array(
+			'version' => '3',
+			'contact_id' => $contact_id,
+			'is_primary' => $is_primary,
+			'is_billing' => $billing,
+			'location_type_id' => $location_type_id,
+		);
+		
+		foreach($address_fields as $column_matched => $field) {
+				$params[$field] = $address_data[$column_matched];
+		}	
+		
+		// @CiviCRM API (v3)
+		$result = civicrm_api('Address', 'create', $params);
+		if($result['is_error'] == 1) {
+			$this->log->_log('Error (Address API Call) on ContactID: ' . $contact_id . ': ' . $result['error_message'], 'error');
+
+		}
+	}
 	
 } // end of class
 
